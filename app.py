@@ -32,6 +32,35 @@ MEDICAL_GLOSSARY = {
     "post-op": "Post-operative, meaning the period right after surgery."
 }
 
+# Guaranteed Embedded Sample Discharge Summary (Always available even if files are not on disk)
+SAMPLE_DISCHARGE_TEXT = """ST. JUDE MEMORIAL HOSPITAL
+PATIENT DISCHARGE SUMMARY
+
+Patient: John Doe (Fictional) | Age: 68 | Admission Date: Oct 10, 2026 | Discharge Date: Oct 14, 2026
+Primary Diagnosis: Mild Congestive Heart Failure Exacerbation
+Attending Physician: Dr. Sarah Vance, MD
+------------------------------------------------------------------------------------------
+
+1. MEDICATIONS:
+- Lisinopril 10mg: Take 1 tablet by mouth every morning for blood pressure.
+- Furosemide 20mg: Take 1 tablet daily in the morning.
+- Take one capsule twice daily after meals (Medicine name unreadable on prescription).
+- Metoprolol Tartrate 25mg: Take 1 tablet twice daily with food.
+
+2. DIET & ACTIVITY:
+- Sodium restricted diet: Under 2,000 mg per day.
+- Daily morning weight check before breakfast. Report weight gain of >3 lbs in 24 hours.
+- Light walking as tolerated. No strenuous heavy lifting over 10 lbs.
+
+3. FOLLOW-UP APPOINTMENT:
+- Follow-up with Dr. Vance in Cardiology Clinic on Oct 24, 2026 at 10:30 AM.
+- Alternate clinic note mentions returning on Oct 21, 2026.
+
+4. WARNING SIGNS (RED FLAGS):
+- Sudden shortness of breath while resting.
+- Swelling in lower legs, ankles, or feet.
+- Chest pressure or pain: Call 911 immediately."""
+
 # ==============================================================================
 # 2. DOCUMENT PROCESSING FUNCTIONS
 # ==============================================================================
@@ -67,6 +96,19 @@ def extract_text_from_pdf(pdf_bytes):
 def extract_text_from_image(image_bytes):
     try:
         import pytesseract
+        
+        # Check standard Windows installation paths if on Windows
+        if os.name == "nt":
+            windows_paths = [
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+                os.path.expanduser(r"~\AppData\Local\Programs\Tesseract-OCR\tesseract.exe")
+            ]
+            for wp in windows_paths:
+                if os.path.exists(wp):
+                    pytesseract.pytesseract.tesseract_cmd = wp
+                    break
+
         image = Image.open(io.BytesIO(image_bytes))
         try:
             text = pytesseract.image_to_string(image).strip()
@@ -75,8 +117,8 @@ def extract_text_from_image(image_bytes):
             return text, True, "Successfully extracted text using OCR."
         except Exception:
             return "", False, (
-                "Tesseract OCR is not installed on this cloud environment. "
-                "You can still view the image and type or paste the text directly into the editor below."
+                "Tesseract OCR is not installed on this cloud environment yet. "
+                "Add 'tesseract-ocr' in packages.txt on GitHub, or view the image above and paste the text directly into the editor below."
             )
     except Exception as img_err:
         return "", False, f"Invalid or unreadable image file: {str(img_err)}"
@@ -526,18 +568,25 @@ elif current_page == "📄 Upload & Review Document":
     with upload_col:
         uploaded_file = st.file_uploader("Select a discharge summary file (PDF, PNG, JPG, JPEG):", type=["pdf", "png", "jpg", "jpeg"], help=f"Max size: {MAX_FILE_SIZE_MB}MB.")
     with sample_col:
-        st.write("**Or try with a sample document:**")
-        sample_path = os.path.join("sample_documents", "sample_discharge_summary.pdf")
-        if os.path.exists(sample_path):
-            if st.button("📁 Load Sample Discharge Summary", use_container_width=True):
-                with open(sample_path, "rb") as f:
-                    pdf_bytes = f.read()
-                text, success, msg = extract_text_from_pdf(pdf_bytes)
-                if success:
-                    st.session_state.extracted_text = text
-                    st.session_state.uploaded_filename = "sample_discharge_summary.pdf"
-                    st.toast("Sample loaded successfully!", icon="✅")
-                    st.rerun()
+        st.markdown("**Or test with instant sample data:**")
+        if st.button("📁 Load Sample Discharge Summary", use_container_width=True, type="primary"):
+            sample_path = os.path.join("sample_documents", "sample_discharge_summary.pdf")
+            loaded_text = None
+            if os.path.exists(sample_path):
+                try:
+                    with open(sample_path, "rb") as f:
+                        text, ok, _ = extract_text_from_pdf(f.read())
+                        if ok and text:
+                            loaded_text = text
+                except Exception:
+                    pass
+            if not loaded_text:
+                loaded_text = SAMPLE_DISCHARGE_TEXT
+            
+            st.session_state.extracted_text = loaded_text
+            st.session_state.uploaded_filename = "sample_discharge_summary.pdf"
+            st.toast("Sample loaded successfully!", icon="✅")
+            st.rerun()
 
     if uploaded_file is not None:
         if uploaded_file.name != st.session_state.uploaded_filename:
