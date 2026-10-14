@@ -1,9 +1,11 @@
 import re
 from typing import Dict, List, Any
 from datetime import datetime, date
-from modules.confusion_detector import analyze_document_confusion
 
-def build_recovery_plan(document_text: str, api_key: str = None) -> Dict[str, Any]:
+try:
+    from modules.confusion_detector import analyze_document_confusion
+except ModuleNotFoundError:
+    from confusion_detector import analyze_document_confusion
     """
     Builds a structured Recovery Journey Map from the discharge summary.
     Categorizes facts strictly supported by the text:
