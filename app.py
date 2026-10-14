@@ -58,17 +58,143 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for high readability and accessible design
+# Custom CSS for high readability, modern colors, and polished UI
 st.markdown("""
 <style>
-    /* Clean healthcare typography & spacing */
+    /* Clean healthcare typography & glowing accents */
     .big-font { font-size: 1.15rem !important; line-height: 1.6; }
+    
+    /* Modern Hero Banner */
+    .hero-container {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.12) 0%, rgba(99, 102, 241, 0.18) 50%, rgba(168, 85, 247, 0.12) 100%);
+        border: 1px solid rgba(99, 102, 241, 0.35);
+        border-radius: 18px;
+        padding: 28px 32px;
+        margin-bottom: 24px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-title {
+        font-size: 2.4rem !important;
+        font-weight: 800 !important;
+        background: linear-gradient(90deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 6px !important;
+        letter-spacing: -0.5px;
+    }
+    .hero-tagline {
+        font-size: 1.25rem !important;
+        font-weight: 500;
+        opacity: 0.95;
+        margin-bottom: 16px;
+    }
+    
+    /* Vibrant Badges */
+    .badge-pill {
+        display: inline-block;
+        padding: 5px 14px;
+        border-radius: 9999px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        margin-right: 8px;
+        margin-bottom: 8px;
+    }
+    .badge-blue { background: rgba(14, 165, 233, 0.18); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4); }
+    .badge-purple { background: rgba(168, 85, 247, 0.18); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
+    .badge-green { background: rgba(34, 197, 94, 0.18); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); }
+
+    /* Interactive Feature Cards with smooth hover effect */
+    .feature-card {
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 22px;
+        transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 28px rgba(99, 102, 241, 0.25);
+        border-color: rgba(99, 102, 241, 0.55);
+    }
+    .feature-icon {
+        font-size: 2.2rem;
+        margin-bottom: 12px;
+    }
+    .feature-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+    .feature-desc {
+        font-size: 0.95rem;
+        opacity: 0.85;
+        line-height: 1.5;
+    }
+    
+    /* Sleek step indicator */
+    .step-pill {
+        background: rgba(99, 102, 241, 0.12);
+        border: 1px solid rgba(99, 102, 241, 0.25);
+        border-radius: 10px;
+        padding: 10px 14px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    /* Transform Streamlit sidebar radio into sleek modern navigation pills */
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] > div {
+        gap: 6px !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label {
+        background: rgba(255, 255, 255, 0.04) !important;
+        border: 1px solid rgba(255, 255, 255, 0.07) !important;
+        border-radius: 12px !important;
+        padding: 10px 14px !important;
+        margin-bottom: 3px !important;
+        transition: all 0.22s ease !important;
+        cursor: pointer !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label:hover {
+        background: rgba(99, 102, 241, 0.18) !important;
+        border-color: rgba(99, 102, 241, 0.5) !important;
+        transform: translateX(4px) !important;
+    }
+    /* Active / Checked Navigation Item */
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label:has(input:checked),
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label[data-checked="true"] {
+        background: linear-gradient(90deg, rgba(14, 165, 233, 0.22), rgba(99, 102, 241, 0.32)) !important;
+        border: 1px solid rgba(56, 189, 248, 0.6) !important;
+        border-left: 5px solid #38bdf8 !important;
+        box-shadow: 0 4px 15px rgba(14, 165, 233, 0.2) !important;
+        font-weight: 700 !important;
+    }
+    /* Hide the old-fashioned radio dots */
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label > div:first-child {
+        display: none !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] input[type="radio"] {
+        display: none !important;
+    }
+
     /* Soften quotes and callouts */
     blockquote {
-        border-left: 4px solid #6366f1 !important;
-        padding-left: 12px !important;
+        border-left: 4px solid #818cf8 !important;
+        padding-left: 14px !important;
         color: inherit !important;
-        opacity: 0.9;
+        opacity: 0.92;
+        background: rgba(99, 102, 241, 0.05);
+        border-radius: 0 8px 8px 0;
+        margin: 8px 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -88,8 +214,19 @@ if "checklist_state" not in st.session_state:
 # ==============================================================================
 # 3. SIDEBAR NAVIGATION & CONTROLS
 # ==============================================================================
-st.sidebar.title("🌉 CareBridge AI")
-st.sidebar.caption("From hospital instructions to confident recovery.")
+st.sidebar.markdown(
+    """
+    <div style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.16) 0%, rgba(99, 102, 241, 0.22) 100%); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 16px; padding: 18px 14px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 18px rgba(0,0,0,0.25);">
+        <div style="font-size: 2.2rem; margin-bottom: 4px; filter: drop-shadow(0 2px 8px rgba(56,189,248,0.45));">🌉</div>
+        <div style="font-size: 1.35rem; font-weight: 800; color: #38bdf8; letter-spacing: -0.5px;">CareBridge AI</div>
+        <div style="font-size: 0.8rem; color: #cbd5e1; opacity: 0.9; margin-top: 2px;">Recovery Companion</div>
+        <div style="margin-top: 10px;">
+            <span style="background: rgba(56, 189, 248, 0.16); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 20px; font-size: 0.72rem; padding: 3px 10px; font-weight: 600;">v1.0 Ready</span>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 nav_pages = [
     "🏠 Home",
@@ -107,9 +244,25 @@ st.sidebar.divider()
 # Privacy & Document Management
 st.sidebar.subheader("🔒 Privacy & Safety")
 if st.session_state.uploaded_filename:
-    st.sidebar.success(f"Active file: `{st.session_state.uploaded_filename}`")
+    st.sidebar.markdown(
+        f"""
+        <div style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); border-left: 4px solid #22c55e; border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+            <div style="font-size: 0.75rem; text-transform: uppercase; color: #4ade80; font-weight: 700; letter-spacing: 0.5px;">🟢 Active Document</div>
+            <div style="font-size: 0.85rem; font-weight: 600; margin-top: 3px; word-break: break-all;">{st.session_state.uploaded_filename}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 else:
-    st.sidebar.info("No document currently loaded.")
+    st.sidebar.markdown(
+        """
+        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+            <div style="font-size: 0.75rem; text-transform: uppercase; opacity: 0.7; font-weight: 700; letter-spacing: 0.5px;">⚪ Status</div>
+            <div style="font-size: 0.85rem; opacity: 0.85; margin-top: 3px;">No document loaded yet</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 if st.sidebar.button("🗑️ Clear Document & Reset", use_container_width=True):
     st.session_state.extracted_text = ""
@@ -132,30 +285,88 @@ with st.sidebar.expander("⚙️ Optional AI Settings"):
 # PAGE 1: HOME
 # ==============================================================================
 if current_page == "🏠 Home":
-    st.title("🌉 CareBridge AI")
-    st.subheader("Your Personal Recovery Companion")
+    # Vibrant Hero Section
+    st.markdown(
+        """
+        <div class="hero-container">
+            <h1 class="hero-title">🌉 CareBridge AI</h1>
+            <p class="hero-tagline">From hospital instructions to confident recovery.</p>
+            <div>
+                <span class="badge-pill badge-blue">🛡️ Responsible AI Prototype</span>
+                <span class="badge-pill badge-purple">⚡ Instant Offline Safety Parser</span>
+                <span class="badge-pill badge-green">♿ Universal Accessibility</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     st.write(
         """
-        Welcome to **CareBridge AI**! 
-
-        Leaving the hospital after surgery or illness can be overwhelming. Hospital discharge summaries 
-        are often packed with complicated medical jargon, confusing medication schedules, and critical warnings. 
+        Leaving the hospital after surgery or illness can be confusing and overwhelming. Hospital discharge summaries 
+        are often dense with complicated clinical terminology, fragmented medication doses, and vital follow-up dates. 
 
         **CareBridge AI** bridges the gap between complicated hospital paperwork and your recovery at home.
         """
     )
 
+    # 3 Vibrant Feature Cards with Hover Effects
+    st.markdown("### 🌟 What CareBridge AI Does For You")
     col1, col2, col3 = st.columns(3)
+    
     with col1:
-        st.markdown("### 💡 Understand")
-        st.write("Converts complex clinical notes into plain, patient-friendly explanations without altering dosages.")
+        st.markdown(
+            """
+            <div class="feature-card">
+                <div>
+                    <div class="feature-icon">💡</div>
+                    <div class="feature-title" style="color: #38bdf8;">Understand</div>
+                    <div class="feature-desc">Converts complex medical jargon into clear, patient-friendly explanations while preserving exact dosages and dates.</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
     with col2:
-        st.markdown("### 🔍 Confusion Detector")
-        st.write("Identifies unreadable medicines, missing timings, or conflicting dates before mistakes happen.")
+        st.markdown(
+            """
+            <div class="feature-card">
+                <div>
+                    <div class="feature-icon">🔍</div>
+                    <div class="feature-title" style="color: #fbbf24;">Confusion Detector</div>
+                    <div class="feature-desc">Our unique safety engine. Identifies unreadable medicines, missing schedules, or conflicting dates before mistakes happen.</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
     with col3:
-        st.markdown("### 🗺️ Recovery Journey")
-        st.write("Provides a personalized, interactive daily checklist and follow-up tracker for you and caregivers.")
+        st.markdown(
+            """
+            <div class="feature-card">
+                <div>
+                    <div class="feature-icon">🗺️</div>
+                    <div class="feature-title" style="color: #4ade80;">Recovery Journey</div>
+                    <div class="feature-desc">Interactive daily checklist with progress tracking, reminder alerts, and calendar sync (.ics) for phones.</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 4-Step Interactive Visual Flow
+    st.markdown("### 🗺️ How Your Recovery Journey Works")
+    step1, step2, step3, step4 = st.columns(4)
+    with step1:
+        st.markdown("<div class='step-pill'>📄 1. Upload Summary<br><small style='opacity:0.7;'>PDF or Photo</small></div>", unsafe_allow_html=True)
+    with step2:
+        st.markdown("<div class='step-pill'>📋 2. Review Text<br><small style='opacity:0.7;'>Verify Extracted Notes</small></div>", unsafe_allow_html=True)
+    with step3:
+        st.markdown("<div class='step-pill'>🔍 3. Confusion Scan<br><small style='opacity:0.7;'>Flag Safety Hazards</small></div>", unsafe_allow_html=True)
+    with step4:
+        st.markdown("<div class='step-pill'>🗺️ 4. Daily Care Plan<br><small style='opacity:0.7;'>Checklist & Reminders</small></div>", unsafe_allow_html=True)
 
     st.divider()
 
@@ -165,8 +376,6 @@ if current_page == "🏠 Home":
         "It does **not** diagnose medical conditions, prescribe treatments, alter prescriptions, or replace "
         "professional medical advice. Always consult your doctor or pharmacist for any medical decisions."
     )
-
-    st.info("👉 To start, click **📄 Upload & Review Document** in the sidebar on the left.")
 
 # ==============================================================================
 # PAGE 2: UPLOAD & REVIEW DOCUMENT
@@ -470,7 +679,16 @@ elif current_page == "🗺️ My Recovery Journey":
                 morning_items = [r for r in reminders if r["schedule_slot"] == "Morning"]
                 if morning_items:
                     for item in morning_items:
-                        st.info(f"💊 **{item['title']}**\n\n*Time*: {item['timing']}\n\n*{item['details']}*")
+                        st.markdown(
+                            f"""
+                            <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-left: 5px solid #f59e0b; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;">
+                                <div style="font-weight: 700; color: #fbbf24; font-size: 1.05rem;">💊 {item['title']}</div>
+                                <div style="font-size: 0.85rem; opacity: 0.8; margin: 4px 0;">⏰ <strong>Time:</strong> {item['timing']}</div>
+                                <div style="font-size: 0.9rem; line-height: 1.4;">{item['details']}</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
                 else:
                     st.write("No morning medications scheduled.")
 
@@ -479,7 +697,16 @@ elif current_page == "🗺️ My Recovery Journey":
                 evening_items = [r for r in reminders if r["schedule_slot"] in ["Evening", "Night"]]
                 if evening_items:
                     for item in evening_items:
-                        st.info(f"💊 **{item['title']}**\n\n*Time*: {item['timing']}\n\n*{item['details']}*")
+                        st.markdown(
+                            f"""
+                            <div style="background: rgba(129, 140, 248, 0.08); border: 1px solid rgba(129, 140, 248, 0.35); border-left: 5px solid #818cf8; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;">
+                                <div style="font-weight: 700; color: #a5b4fc; font-size: 1.05rem;">💊 {item['title']}</div>
+                                <div style="font-size: 0.85rem; opacity: 0.8; margin: 4px 0;">⏰ <strong>Time:</strong> {item['timing']}</div>
+                                <div style="font-size: 0.9rem; line-height: 1.4;">{item['details']}</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
                 else:
                     st.write("No evening medications scheduled.")
 
@@ -488,7 +715,16 @@ elif current_page == "🗺️ My Recovery Journey":
                 appt_items = [r for r in reminders if r["schedule_slot"] == "Appointment"]
                 if appt_items:
                     for item in appt_items:
-                        st.success(f"🏥 **{item['title']}**\n\n*When*: **{item['timing']}**\n\n*{item['details']}*")
+                        st.markdown(
+                            f"""
+                            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.35); border-left: 5px solid #10b981; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;">
+                                <div style="font-weight: 700; color: #34d399; font-size: 1.05rem;">🏥 {item['title']}</div>
+                                <div style="font-size: 0.85rem; opacity: 0.8; margin: 4px 0;">🗓️ <strong>When:</strong> {item['timing']}</div>
+                                <div style="font-size: 0.9rem; line-height: 1.4;">{item['details']}</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
                 else:
                     st.write("No specific clinic appointments detected.")
 
