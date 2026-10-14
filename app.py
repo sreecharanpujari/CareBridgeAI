@@ -1,25 +1,52 @@
 import streamlit as st
 import os
+import sys
 import io
 from gtts import gTTS
 
-# Import our custom modules
-from modules.document_reader import (
-    validate_uploaded_file,
-    extract_text_from_pdf,
-    extract_text_from_image,
-    MAX_FILE_SIZE_MB
-)
-from modules.medical_explainer import (
-    get_medical_explanation,
-    answer_patient_question
-)
-from modules.confusion_detector import analyze_document_confusion
-from modules.recovery_planner import (
-    build_recovery_plan,
-    extract_reminders_schedule,
-    generate_ics_calendar
-)
+# Ensure the root directory of the project is in Python's search path (Crucial for Streamlit Cloud)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+modules_dir = os.path.join(current_dir, "modules")
+if os.path.exists(modules_dir) and modules_dir not in sys.path:
+    sys.path.insert(0, modules_dir)
+
+# Import our custom modules (resilient to both folder or root placement)
+try:
+    from modules.document_reader import (
+        validate_uploaded_file,
+        extract_text_from_pdf,
+        extract_text_from_image,
+        MAX_FILE_SIZE_MB
+    )
+    from modules.medical_explainer import (
+        get_medical_explanation,
+        answer_patient_question
+    )
+    from modules.confusion_detector import analyze_document_confusion
+    from modules.recovery_planner import (
+        build_recovery_plan,
+        extract_reminders_schedule,
+        generate_ics_calendar
+    )
+except ModuleNotFoundError:
+    from document_reader import (
+        validate_uploaded_file,
+        extract_text_from_pdf,
+        extract_text_from_image,
+        MAX_FILE_SIZE_MB
+    )
+    from medical_explainer import (
+        get_medical_explanation,
+        answer_patient_question
+    )
+    from confusion_detector import analyze_document_confusion
+    from recovery_planner import (
+        build_recovery_plan,
+        extract_reminders_schedule,
+        generate_ics_calendar
+    )
 
 # ==============================================================================
 # 1. PAGE SETUP & ACCESSIBILITY STYLING
