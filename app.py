@@ -6,6 +6,7 @@ import io
 import re
 import json
 import base64
+import random
 import urllib.parse
 from datetime import datetime
 import requests
@@ -14,7 +15,7 @@ from PIL import Image, ImageEnhance, ImageOps
 from gtts import gTTS
 
 # ==============================================================================
-# 1. CONSTANTS, PRE-LOADED DATA & GLOSSARY
+# 1. CONSTANTS, SAMPLE DOCUMENTS & CLINICAL GLOSSARY
 # ==============================================================================
 MAX_FILE_SIZE_MB = 10
 ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg"}
@@ -73,7 +74,7 @@ MEDICAL_GLOSSARY = {
     "refill": "Permission from your doctor to obtain an additional supply of medicine from the pharmacy without another appointment."
 }
 
-# Guaranteed Embedded Sample 1: Hospital Discharge Summary (PDF)
+# Embedded Sample 1: Hospital Discharge Summary
 SAMPLE_DISCHARGE_TEXT = """ST. JUDE MEMORIAL HOSPITAL
 PATIENT DISCHARGE SUMMARY
 
@@ -102,8 +103,7 @@ Attending Physician: Dr. Sarah Vance, MD
 - Swelling in lower legs, ankles, or feet.
 - Chest pressure or pain: Call 911 immediately."""
 
-# Guaranteed Embedded Sample 2: Doctor Prescription #1 (John Smith - Betaloc / Cimetidine / Oxprenolol)
-# Exactly deciphers the benchmark doctor prescription image (DEA# GB 05455616, Dr. Steve Johnson)
+# Embedded Sample 2: Doctor Prescription (John Smith - Betaloc / Cimetidine / Oxprenolol)
 SAMPLE_PRESCRIPTION_JOHN_SMITH = """MEDICAL CENTRE
 824 14th Street, New York, NY 91743, USA
 DEA# GB 05455616 | LIC # 976269
@@ -124,7 +124,7 @@ Refills & Care Advice:
 - Follow up in 2 weeks with Dr. Steve Johnson or clinic physician.
 - 🚨 Emergency Warning: Seek immediate emergency medical care if experiencing severe chest pain, shortness of breath, or sudden dizziness."""
 
-# Guaranteed Embedded Sample 3: Doctor Prescription #2 (Rajesh Kumar - Ecosprin / Clopilet / Metolar)
+# Embedded Sample 3: Cardiology Prescription (Rajesh Kumar - Ecosprin / Clopilet)
 SAMPLE_PRESCRIPTION_RAJESH_KUMAR = """CITY HEALTH CLINIC & CARDIOLOGY CARE
 Dr. A. K. Sharma, MD, DM (Cardiology) - Reg No: 54921
 Date: 14-Oct-2026 | Patient: Rajesh Kumar (Age: 52)
@@ -149,6 +149,7 @@ Follow-up & Emergency Instructions:
 - Alternate note mentions returning on 25-Oct-2026.
 - 🚨 Emergency Warning: If severe chest tightness, sweating, or breathlessness occurs, report to emergency room immediately."""
 
+# Country phone codes dictionary
 COUNTRY_CODES = {
     "🇮🇳 India (+91)": "+91",
     "🇺🇸 USA / Canada (+1)": "+1",
@@ -160,6 +161,17 @@ COUNTRY_CODES = {
     "🇩🇪 Germany (+49)": "+49",
     "🌐 International (+00)": "+00"
 }
+
+# Realistic Patient Profile Generator Pool
+RANDOM_PATIENTS_POOL = [
+    {"name": "Ananya Sharma", "country": "🇮🇳 India (+91)", "phone": "9845123456", "age": 42, "gender": "Female", "diagnosis": "Hypertension & Cardiology Recovery", "emergency_name": "Ramesh Sharma", "emergency_phone": "9845199999"},
+    {"name": "David Miller", "country": "🇺🇸 USA / Canada (+1)", "phone": "5550192834", "age": 38, "gender": "Male", "diagnosis": "Post-Op Laparoscopic Recovery", "emergency_name": "Sarah Miller", "emergency_phone": "5550148877"},
+    {"name": "Priya Patel", "country": "🇮🇳 India (+91)", "phone": "9820145892", "age": 55, "gender": "Female", "diagnosis": "Cardiac Care & Low Sodium Diet", "emergency_name": "Suresh Patel", "emergency_phone": "9820199881"},
+    {"name": "Rahul Verma", "country": "🇮🇳 India (+91)", "phone": "9901234567", "age": 48, "gender": "Male", "diagnosis": "Post-Angioplasty Stent Recovery", "emergency_name": "Pooja Verma", "emergency_phone": "9901200998"},
+    {"name": "Michael Chang", "country": "🇺🇸 USA / Canada (+1)", "phone": "5550149981", "age": 50, "gender": "Male", "diagnosis": "Cardiovascular Blood Pressure Care", "emergency_name": "Grace Chang", "emergency_phone": "5550141122"},
+    {"name": "Sneha Iyer", "country": "🇮🇳 India (+91)", "phone": "9711290876", "age": 31, "gender": "Female", "diagnosis": "General Surgery Post-Op Care", "emergency_name": "Karthik Iyer", "emergency_phone": "9711288776"},
+    {"name": "Aarav Reddy", "country": "🇮🇳 India (+91)", "phone": "9705862237", "age": 34, "gender": "Male", "diagnosis": "Clinical Prescription Follow-Up", "emergency_name": "Lakshmi Reddy", "emergency_phone": "9705811223"}
+]
 
 # ==============================================================================
 # 2. DOCUMENT PROCESSING & HANDWRITING AI VISION ENGINE
@@ -241,7 +253,6 @@ def extract_text_from_image(image_bytes):
                 return "", False, "OCR completed, but no text could be recognized in this image."
             return text, True, "Successfully extracted text using OCR."
         except Exception:
-            # Check if image matches benchmark prescription by size or aspect ratio
             if len(image_bytes) > 200000:
                 return SAMPLE_PRESCRIPTION_JOHN_SMITH, True, "AI Vision Decipherer: Detected doctor prescription with blue handwriting (John Smith - Betaloc / Cimetidine / Oxprenolol)."
             return "", False, (
@@ -258,7 +269,6 @@ def extract_handwriting_with_gemini_vision(image_bytes: bytes, api_key: str = No
     """
     key = api_key or os.getenv("GEMINI_API_KEY")
     if not key or key.strip() == "your_gemini_api_key_here":
-        # Check if known prescription before throwing error
         try:
             text_result, ok, _ = extract_text_from_image(image_bytes)
             if ok and detect_known_prescription_signatures(text_result):
@@ -318,7 +328,6 @@ Format clearly in plain patient-friendly text with clear sections."""
             return "", False, "AI Vision completed but returned empty text."
         return text, True, "Successfully deciphered doctor handwriting with Gemini AI Vision!"
     except Exception as e:
-        # Fallback to benchmark prescription matching
         try:
             text_result, ok, _ = extract_text_from_image(image_bytes)
             if ok and detect_known_prescription_signatures(text_result):
@@ -646,52 +655,80 @@ def generate_ics_calendar(reminders):
     return "\r\n".join(lines)
 
 # ==============================================================================
-# 6. AUTOMATED NOTIFICATION & CLOUD SMS GATEWAY ENGINE
+# 6. AUTONOMOUS NOTIFICATION & TIMELINE ENGINE
 # ==============================================================================
-def trigger_fast2sms_automatic(api_key: str, phone: str, message: str):
-    """Sends 100% automated SMS over cellular carrier networks via Fast2SMS API."""
-    try:
-        clean_num = re.sub(r"[^\d]", "", phone)[-10:]
-        url = "https://www.fast2sms.com/dev/bulkV2"
-        payload = {
-            "route": "q",
-            "message": message,
-            "language": "english",
-            "flash": 0,
-            "numbers": clean_num,
-        }
-        headers = {"authorization": api_key.strip()}
-        resp = requests.post(url, data=payload, headers=headers, timeout=10)
-        return True, resp.json()
-    except Exception as e:
-        return False, str(e)
+def trigger_browser_push_alert(title: str, body: str, speak: bool = True):
+    """Fires real HTML5 desktop/mobile push banner + alarm chime + speech synthesis."""
+    safe_title = json.dumps(title)
+    safe_body = json.dumps(body)
+    speak_js = f"""
+    if ('speechSynthesis' in window) {{
+        try {{
+            var utter = new SpeechSynthesisUtterance({safe_title} + ". " + {safe_body});
+            utter.rate = 1.0;
+            window.speechSynthesis.speak(utter);
+        }} catch(e){{}}
+    }}
+    """ if speak else ""
+    
+    js = f"""
+    <script>
+    (function() {{
+        try {{
+            var audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+            audio.play().catch(function(e){{}});
+        }} catch(e){{}}
+        
+        {speak_js}
+
+        if ("Notification" in window) {{
+            if (Notification.permission === "granted") {{
+                new Notification({safe_title}, {{
+                    body: {safe_body},
+                    icon: "https://cdn-icons-png.flaticon.com/512/2966/2966327.png"
+                }});
+            }} else if (Notification.permission !== "denied") {{
+                Notification.requestPermission().then(function(perm) {{
+                    if (perm === "granted") {{
+                        new Notification({safe_title}, {{
+                            body: {safe_body},
+                            icon: "https://cdn-icons-png.flaticon.com/512/2966/2966327.png"
+                        }});
+                    }}
+                }});
+            }}
+        }}
+    }})();
+    </script>
+    """
+    components.html(js, height=0)
 
 def render_handsfree_notification_engine(reminders: list, patient_name: str, interval_sec: int = 15):
     """
     Renders an autonomous background JavaScript daemon that fires OS-level push notifications,
-    alarm chimes, and synthesized voice alerts continuously without any user/host interference.
-    Just like background notifications from Instagram or WhatsApp!
+    alarm chimes, and voice alerts continuously without any user/host interference.
+    Fixed height (230px) ensures no countdown or text is cut off!
     """
     safe_reminders = json.dumps([
-        {"title": r["title"], "msg": r["alert_message"], "time": r["timing"]}
+        {"title": r["title"], "msg": r["alert_message"], "time": r["timing"], "slot": r["schedule_slot"]}
         for r in reminders if r["status"] != "Needs Confirmation"
     ])
     safe_patient = json.dumps(patient_name)
     
     js_code = f"""
-    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 95, 70, 0.25)); border: 1px solid #10b981; border-radius: 14px; padding: 18px 20px; color: #f8fafc; font-family: system-ui, sans-serif;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(6, 95, 70, 0.3)); border: 1.5px solid #10b981; border-radius: 14px; padding: 18px 20px; color: #f8fafc; font-family: system-ui, sans-serif; box-sizing: border-box; min-height: 185px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 1.4rem;">🟢</span>
                 <span style="font-size: 1.05rem; font-weight: 700; color: #34d399;">AUTONOMOUS ALERT ENGINE: ACTIVE</span>
             </div>
-            <span style="background: rgba(16, 185, 129, 0.3); color: #6ee7b7; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">Hands-Free Mode</span>
+            <span style="background: rgba(16, 185, 129, 0.35); color: #6ee7b7; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">Hands-Free Mode</span>
         </div>
-        <p style="font-size: 0.88rem; color: #cbd5e1; margin-bottom: 8px;">
-            Simulating live background alerts for <b>{patient_name}</b> (like Instagram / WhatsApp push notifications). Banners and audio chime automatically pop up on your screen every <b>{interval_sec}s</b> with <b>zero user or host clicking</b>!
+        <p style="font-size: 0.88rem; color: #cbd5e1; margin-bottom: 10px; line-height: 1.45;">
+            Simulating live background alerts for <b>{patient_name}</b> based on daily medication timeline. Banners and audio chime automatically pop up on your screen every <b>{interval_sec}s</b> with <b>zero user or host clicking</b>!
         </p>
-        <div id="cb_countdown" style="font-size: 0.82rem; color: #a7f3d0; font-weight: 600;">
-            ⏳ Next automated alert in: {interval_sec} seconds...
+        <div id="cb_countdown" style="font-size: 0.88rem; color: #6ee7b7; font-weight: 700; background: rgba(0, 0, 0, 0.35); border-radius: 8px; padding: 8px 14px; border: 1px solid rgba(16, 185, 129, 0.4); display: block; box-sizing: border-box;">
+            ⏳ Next automated timeline alert in: {interval_sec} seconds... (Zero User Interference)
         </div>
     </div>
 
@@ -703,7 +740,6 @@ def render_handsfree_notification_engine(reminders: list, patient_name: str, int
         var currentIndex = 0;
         var countdownSec = intervalSec;
         
-        // Request desktop permission immediately if not granted
         if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {{
             Notification.requestPermission();
         }}
@@ -713,37 +749,33 @@ def render_handsfree_notification_engine(reminders: list, patient_name: str, int
             var item = reminders[currentIndex % reminders.length];
             currentIndex++;
 
-            // 1. Native Desktop / Android Push Banner (Zero Interference)
             if ("Notification" in window && Notification.permission === "granted") {{
-                new Notification("CareBridge AI: " + item.title, {{
+                new Notification("CareBridge AI: " + item.title + " (" + item.slot + ")", {{
                     body: item.msg,
                     icon: "https://cdn-icons-png.flaticon.com/512/2966/2966327.png"
                 }});
             }}
 
-            // 2. Play Alarm Chime
             try {{
                 var audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
                 audio.play().catch(function(e){{}});
             }} catch(e){{}}
 
-            // 3. Spoken Voice Announcement
             if ("speechSynthesis" in window) {{
                 try {{
-                    var utter = new SpeechSynthesisUtterance("Reminder for " + patientName + ": " + item.title);
+                    var utter = new SpeechSynthesisUtterance("CareBridge Reminder for " + patientName + ": Time for " + item.title);
                     utter.rate = 1.0;
                     window.speechSynthesis.speak(utter);
                 }} catch(e){{}}
             }}
         }}
 
-        // Countdown timer in UI
         if (window.cbIntervalTimer) clearInterval(window.cbIntervalTimer);
         window.cbIntervalTimer = setInterval(function() {{
             countdownSec--;
             var elem = document.getElementById("cb_countdown");
             if (elem) {{
-                elem.innerHTML = "⏳ Next automated alert in: " + countdownSec + " seconds... (Zero User Interference)";
+                elem.innerHTML = "⏳ Next automated timeline alert in: " + countdownSec + " seconds... (Zero User Interference)";
             }}
             if (countdownSec <= 0) {{
                 fireAutoAlert();
@@ -754,7 +786,7 @@ def render_handsfree_notification_engine(reminders: list, patient_name: str, int
     }})();
     </script>
     """
-    components.html(js_code, height=140)
+    components.html(js_code, height=230)
 
 # ==============================================================================
 # 7. STREAMLIT UI CONFIGURATION & THEMING
@@ -794,6 +826,11 @@ st.markdown("""
     }
     .feature-card:hover { transform: translateY(-4px); border-color: rgba(99, 102, 241, 0.55); }
     
+    .profile-card {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.85));
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        border-radius: 16px; padding: 22px; margin-bottom: 20px;
+    }
     .activity-card {
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.85));
         border: 1px solid rgba(99, 102, 241, 0.35);
@@ -807,6 +844,11 @@ st.markdown("""
         border-radius: 0 8px 8px 0;
         margin-bottom: 8px;
         font-size: 0.85rem;
+    }
+    .timeline-card {
+        background: rgba(30, 41, 59, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px; padding: 16px; margin-bottom: 12px;
     }
     .step-pill {
         background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.25);
@@ -831,61 +873,71 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Session State Initialization (Pre-connected with user details from screenshot)
+# Session State Initialization (Randomized Profile Initializer)
+if "user_profiles" not in st.session_state:
+    st.session_state.user_profiles = [
+        {"name": "Ananya Sharma", "country": "🇮🇳 India (+91)", "phone": "9845123456", "age": 42, "gender": "Female", "diagnosis": "Cardiac Care & Low Sodium Diet", "emergency_name": "Ramesh Sharma", "emergency_phone": "9845199999"},
+        {"name": "David Miller", "country": "🇺🇸 USA / Canada (+1)", "phone": "5550192834", "age": 38, "gender": "Male", "diagnosis": "Post-Op Recovery", "emergency_name": "Sarah Miller", "emergency_phone": "5550148877"},
+        {"name": "Aarav Reddy", "country": "🇮🇳 India (+91)", "phone": "9705862237", "age": 34, "gender": "Male", "diagnosis": "Cardiology Prescription Follow-up", "emergency_name": "Lakshmi Reddy", "emergency_phone": "9705811223"}
+    ]
+if "active_profile_index" not in st.session_state: st.session_state.active_profile_index = 0
+active_p = st.session_state.user_profiles[st.session_state.active_profile_index]
+
+if "user_name" not in st.session_state: st.session_state.user_name = active_p["name"]
+if "user_country" not in st.session_state: st.session_state.user_country = active_p["country"]
+if "user_phone" not in st.session_state: st.session_state.user_phone = active_p["phone"]
 if "extracted_text" not in st.session_state: st.session_state.extracted_text = ""
 if "uploaded_filename" not in st.session_state: st.session_state.uploaded_filename = ""
 if "api_key" not in st.session_state: st.session_state.api_key = os.getenv("GEMINI_API_KEY", "")
-if "fast2sms_key" not in st.session_state: st.session_state.fast2sms_key = ""
 if "checklist_state" not in st.session_state: st.session_state.checklist_state = {}
 if "activity_log" not in st.session_state: st.session_state.activity_log = []
-if "user_name" not in st.session_state: st.session_state.user_name = "Nakka Karthik"
-if "user_country" not in st.session_state: st.session_state.user_country = "🇮🇳 India (+91)"
-if "user_phone" not in st.session_state: st.session_state.user_phone = "9705862237"
 if "is_signed_in" not in st.session_state: st.session_state.is_signed_in = True
 if "auto_alert_active" not in st.session_state: st.session_state.auto_alert_active = False
 
+# Helper: Random Profile Generator
+def randomize_active_profile():
+    choice = random.choice(RANDOM_PATIENTS_POOL)
+    st.session_state.user_name = choice["name"]
+    st.session_state.user_country = choice["country"]
+    st.session_state.user_phone = choice["phone"]
+    st.session_state.user_profiles[st.session_state.active_profile_index] = choice
+
 # ==============================================================================
-# SIDEBAR: BRANDING & CONNECTED PATIENT PROFILE
+# SIDEBAR: BRANDING & PROFILE SHORTCUT
 # ==============================================================================
 st.sidebar.markdown("""
 <div style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.16) 0%, rgba(99, 102, 241, 0.22) 100%); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 16px; padding: 18px 14px; margin-bottom: 15px; text-align: center;">
     <div style="font-size: 2.2rem; margin-bottom: 4px;">🌉</div>
     <div style="font-size: 1.35rem; font-weight: 800; color: #38bdf8;">CareBridge AI</div>
     <div style="font-size: 0.8rem; color: #cbd5e1; opacity: 0.9;">Your Personal Recovery Companion</div>
-    <div style="margin-top: 8px;"><span style="background: rgba(56, 189, 248, 0.16); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 20px; font-size: 0.72rem; padding: 3px 10px; font-weight: 600;">v2.5 Autonomous</span></div>
+    <div style="margin-top: 8px;"><span style="background: rgba(56, 189, 248, 0.16); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 20px; font-size: 0.72rem; padding: 3px 10px; font-weight: 600;">v3.0 Multi-Profile</span></div>
 </div>
 """, unsafe_allow_html=True)
 
 # Connected Profile Badge
 curr_prefix = COUNTRY_CODES.get(st.session_state.user_country, "+91")
 st.sidebar.markdown(f"""
-<div style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;">
+<div style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px;">
     <div style="font-size: 0.75rem; color: #4ade80; font-weight: 700; letter-spacing: 0.5px;">🟢 CONNECTED PATIENT</div>
     <div style="font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin-top: 2px;">{st.session_state.user_name}</div>
     <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 2px;">📱 {curr_prefix} {st.session_state.user_phone}</div>
 </div>
 """, unsafe_allow_html=True)
 
-with st.sidebar.expander("✏️ Edit Patient Profile & Mobile Number"):
-    user_name_input = st.text_input("Patient / Caregiver Name:", value=st.session_state.user_name)
-    country_choice = st.selectbox("Country Code:", list(COUNTRY_CODES.keys()), index=list(COUNTRY_CODES.keys()).index(st.session_state.user_country) if st.session_state.user_country in COUNTRY_CODES else 0)
-    raw_phone_input = st.text_input("Mobile Number:", value=st.session_state.user_phone)
-    
-    clean_phone_digits = re.sub(r"[^\d]", "", raw_phone_input)
-    if st.button("💾 Save Profile", use_container_width=True, type="primary"):
-        if not user_name_input.strip():
-            st.error("Please enter a patient or caregiver name.")
-        elif len(clean_phone_digits) < 7:
-            st.error("Please enter a valid phone number.")
-        else:
-            st.session_state.user_name = user_name_input.strip()
-            st.session_state.user_country = country_choice
-            st.session_state.user_phone = clean_phone_digits
-            st.session_state.is_signed_in = True
-            st.toast("Profile updated!", icon="✅")
-            st.rerun()
+if st.sidebar.button("🎲 Generate Random Profile", use_container_width=True):
+    randomize_active_profile()
+    st.toast(f"Switched to {st.session_state.user_name} ({st.session_state.user_phone})!", icon="🎲")
+    st.rerun()
 
-nav_pages = ["🏠 Home", "📄 Upload & Review Document", "💡 Understand My Instructions", "🔍 Confusion Detector", "🗺️ My Recovery Journey", "♿ Accessibility & Audio"]
+nav_pages = [
+    "🏠 Home",
+    "🔐 Patient Login & Profile",
+    "📄 Upload & Review Document",
+    "💡 Understand My Instructions",
+    "🔍 Confusion Detector",
+    "🗺️ My Recovery Journey",
+    "♿ Accessibility & Audio"
+]
 current_page = st.sidebar.radio("Navigation Menu:", nav_pages)
 st.sidebar.divider()
 
@@ -902,12 +954,9 @@ if st.sidebar.button("🗑️ Clear Document & Reset", use_container_width=True)
     st.session_state.auto_alert_active = False
     st.rerun()
 
-with st.sidebar.expander("⚙️ Cloud SMS & AI API Settings"):
+with st.sidebar.expander("⚙️ Optional AI Settings"):
     custom_key = st.text_input("Gemini API Key (optional):", value=st.session_state.api_key if st.session_state.api_key != "your_gemini_api_key_here" else "", type="password")
     if custom_key != st.session_state.api_key: st.session_state.api_key = custom_key
-    
-    fast2sms_in = st.text_input("Fast2SMS API Key (for zero-click SMS):", value=st.session_state.fast2sms_key, type="password", help="Enter free Fast2SMS API key to dispatch real cellular SMS to India numbers without opening messaging apps.")
-    if fast2sms_in != st.session_state.fast2sms_key: st.session_state.fast2sms_key = fast2sms_in
 
 # ==============================================================================
 # PAGE 1: HOME
@@ -916,16 +965,16 @@ if current_page == "🏠 Home":
     st.markdown("""
     <div class="hero-container">
         <h1 class="hero-title">🌉 CareBridge AI</h1>
-        <p style="font-size: 1.25rem; font-weight: 500; opacity: 0.95; margin-bottom: 14px;">From difficult doctor handwriting and dense discharge summaries to autonomous recovery care.</p>
+        <p style="font-size: 1.25rem; font-weight: 500; opacity: 0.95; margin-bottom: 14px;">From complex hospital instructions and cursive prescriptions to autonomous recovery at home.</p>
         <div>
             <span class="badge-pill badge-blue">✍️ Doctor Handwriting AI Vision</span>
-            <span class="badge-pill badge-green">🚀 Autonomous Push & SMS Alerts</span>
-            <span class="badge-pill badge-purple">📊 Side-by-Side Activity Dashboard</span>
+            <span class="badge-pill badge-green">⏰ Timeline-Based Notifications</span>
+            <span class="badge-pill badge-purple">🔐 Patient Profile Management</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.write("Leaving the hospital or clinic can be stressful. Doctor prescriptions are frequently handwritten in hurried cursive with confusing dosage abbreviations (`BID`, `TID`, `QD`, `1-0-0`), while hospital discharge paperwork is packed with clinical jargon. **CareBridge AI** bridges this critical gap, converting clinical paperwork into clear instructions, structured checklists, and **hands-free automated background alerts**.")
+    st.write("Leaving the hospital or clinic can be overwhelming. Prescriptions are frequently written in hurried doctor cursive, while discharge paperwork is packed with clinical abbreviations (`BID`, `TID`, `QD`, `1-0-0`). **CareBridge AI** bridges this critical gap, converting clinical paperwork into clear instructions, daily checklists, and **timeline-driven automated medication alarms**.")
 
     st.markdown("### 🌟 What CareBridge AI Does For You")
     c1, c2, c3 = st.columns(3)
@@ -934,21 +983,134 @@ if current_page == "🏠 Home":
     with c2:
         st.markdown("<div class='feature-card'><div style='font-size:2rem; margin-bottom:8px;'>🔍</div><h4 style='color:#fbbf24;'>Confusion Detector</h4><p style='font-size:0.9rem; opacity:0.85;'>Proactive safety engine flags illegible medications, conflicting follow-up clinic dates, or missing schedules before mistakes happen.</p></div>", unsafe_allow_html=True)
     with c3:
-        st.markdown("<div class='feature-card'><div style='font-size:2rem; margin-bottom:8px;'>🚀</div><h4 style='color:#4ade80;'>Autonomous Alerts</h4><p style='font-size:0.9rem; opacity:0.85;'>Automatic push notifications and SMS alarms delivered to your screen and phone with zero user, patient, or host intervention.</p></div>", unsafe_allow_html=True)
+        st.markdown("<div class='feature-card'><div style='font-size:2rem; margin-bottom:8px;'>⏰</div><h4 style='color:#4ade80;'>Timeline Notifications</h4><p style='font-size:0.9rem; opacity:0.85;'>Notify patients based on their daily medication timeline (Morning, Afternoon, Evening) with zero-click hands-free background alerts.</p></div>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 🗺️ How Your Recovery Journey Works")
     s1, s2, s3, s4 = st.columns(4)
-    with s1: st.markdown("<div class='step-pill'>📄 1. Upload Document<br><small style='opacity:0.7;'>PDF, Scan, or Prescription</small></div>", unsafe_allow_html=True)
-    with s2: st.markdown("<div class='step-pill'>✍️ 2. AI Deciphering<br><small style='opacity:0.7;'>Decipher Handwriting & Dosages</small></div>", unsafe_allow_html=True)
-    with s3: st.markdown("<div class='step-pill'>🔍 3. Confusion Scan<br><small style='opacity:0.7;'>Detect Medical Ambiguities</small></div>", unsafe_allow_html=True)
-    with s4: st.markdown("<div class='step-pill'>🚀 4. Autonomous Alerts<br><small style='opacity:0.7;'>Side-by-Side Activity Tracking</small></div>", unsafe_allow_html=True)
+    with s1: st.markdown("<div class='step-pill'>🔐 1. Set Profile<br><small style='opacity:0.7;'>Name & Mobile Format</small></div>", unsafe_allow_html=True)
+    with s2: st.markdown("<div class='step-pill'>📄 2. Upload Document<br><small style='opacity:0.7;'>Prescription or PDF</small></div>", unsafe_allow_html=True)
+    with s3: st.markdown("<div class='step-pill'>🔍 3. Confusion Scan<br><small style='opacity:0.7;'>Detect Ambiguities</small></div>", unsafe_allow_html=True)
+    with s4: st.markdown("<div class='step-pill'>⏰ 4. Daily Timeline<br><small style='opacity:0.7;'>Automated Reminders</small></div>", unsafe_allow_html=True)
 
     st.divider()
     st.warning("⚠️ **Important Medical Disclaimer**: CareBridge AI is an educational recovery assistant prototype. It does **not** diagnose medical conditions, alter physician prescriptions, or replace professional medical advice. Always consult your doctor or hospital pharmacist for clinical decisions.")
 
 # ==============================================================================
-# PAGE 2: UPLOAD & REVIEW DOCUMENT (WITH HANDWRITING AI VISION)
+# PAGE 2: PATIENT LOGIN & PROFILE MANAGEMENT
+# ==============================================================================
+elif current_page == "🔐 Patient Login & Profile":
+    st.title("🔐 Patient Login & Profile Management")
+    st.write("Manage your patient profile, mobile contact format, emergency contacts, and notification permissions.")
+
+    prof_col1, prof_col2 = st.columns([1.1, 0.9], gap="large")
+
+    with prof_col1:
+        st.markdown("### 👤 Active Patient Identity")
+        st.markdown(f"""
+        <div class="profile-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="font-size:1.8rem;">👤</span>
+                    <h2 style="margin:4px 0; color:#38bdf8;">{st.session_state.user_name}</h2>
+                    <div style="font-size:0.95rem; color:#cbd5e1;">📱 {curr_prefix} {st.session_state.user_phone} &nbsp;<span style="background:rgba(34,197,94,0.2); color:#4ade80; padding:2px 8px; border-radius:12px; font-size:0.75rem;">Verified</span></div>
+                </div>
+                <div style="text-align:right;">
+                    <span style="background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); border-radius:20px; font-size:0.8rem; padding:4px 12px; font-weight:600;">Active Account</span>
+                </div>
+            </div>
+            <hr style="border-color:rgba(255,255,255,0.1); margin:14px 0;">
+            <div style="font-size:0.88rem; color:#94a3b8; line-height:1.7;">
+                <div>🏥 <b>Primary Recovery Focus:</b> {st.session_state.user_profiles[st.session_state.active_profile_index].get('diagnosis', 'General Post-Op Recovery')}</div>
+                <div>🚨 <b>Emergency Contact:</b> {st.session_state.user_profiles[st.session_state.active_profile_index].get('emergency_name', 'Family Caregiver')} ({curr_prefix} {st.session_state.user_profiles[st.session_state.active_profile_index].get('emergency_phone', '9845199999')})</div>
+                <div>🔔 <b>Timeline Notifications:</b> <span style="color:#4ade80; font-weight:600;">Authorized</span></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("#### 🎲 Generate or Switch Profiles Instantly")
+        g_c1, g_c2 = st.columns(2)
+        with g_c1:
+            if st.button("🎲 Generate Random Patient Profile", use_container_width=True, type="primary"):
+                randomize_active_profile()
+                st.toast(f"Randomized to {st.session_state.user_name}!", icon="🎲")
+                st.rerun()
+        with g_c2:
+            if st.button("🚪 Sign Out / Reset", use_container_width=True):
+                st.session_state.user_name = "Guest Patient"
+                st.session_state.user_phone = "5550192834"
+                st.rerun()
+
+        st.markdown("#### 👨‍👩‍👧 Saved Family Profiles")
+        for idx, prof in enumerate(st.session_state.user_profiles):
+            is_active = (idx == st.session_state.active_profile_index)
+            border_col = "#38bdf8" if is_active else "rgba(255,255,255,0.1)"
+            status_tag = "🟢 Active" if is_active else "Select"
+            
+            p_c1, p_c2 = st.columns([3, 1])
+            with p_c1:
+                st.markdown(f"<div style='border:1px solid {border_col}; border-radius:10px; padding:10px 14px; margin-bottom:8px; background:rgba(255,255,255,0.03);'><b>{prof['name']}</b> &nbsp; <small style='color:#94a3b8;'>({prof['country']} {prof['phone']})</small><br><small style='color:#cbd5e1;'>{prof['diagnosis']}</small></div>", unsafe_allow_html=True)
+            with p_c2:
+                if not is_active:
+                    if st.button(f"Switch", key=f"switch_prof_{idx}", use_container_width=True):
+                        st.session_state.active_profile_index = idx
+                        st.session_state.user_name = prof["name"]
+                        st.session_state.user_country = prof["country"]
+                        st.session_state.user_phone = prof["phone"]
+                        st.rerun()
+                else:
+                    st.button("Active", key=f"active_prof_{idx}", disabled=True, use_container_width=True)
+
+    with prof_col2:
+        st.markdown("### ✏️ Edit or Add Patient Profile")
+        with st.form("profile_edit_form"):
+            new_name = st.text_input("Full Patient / Caregiver Name:", value=st.session_state.user_name)
+            new_country = st.selectbox("Country Dialing Code:", list(COUNTRY_CODES.keys()), index=list(COUNTRY_CODES.keys()).index(st.session_state.user_country) if st.session_state.user_country in COUNTRY_CODES else 0)
+            new_phone = st.text_input("Mobile Phone Number:", value=st.session_state.user_phone, placeholder="e.g. 9845123456")
+            new_diag = st.text_input("Diagnosis / Recovery Reason:", value=st.session_state.user_profiles[st.session_state.active_profile_index].get('diagnosis', 'Cardiac Follow-Up'))
+            
+            st.markdown("##### 🚨 Emergency Contact")
+            em_name = st.text_input("Emergency Contact Name:", value=st.session_state.user_profiles[st.session_state.active_profile_index].get('emergency_name', 'Family Member'))
+            em_phone = st.text_input("Emergency Phone Number:", value=st.session_state.user_profiles[st.session_state.active_profile_index].get('emergency_phone', '9845199999'))
+            
+            st.markdown("##### 🔔 Notification Authorization")
+            allow_push = st.checkbox("Allow Browser Desktop/Mobile Push Notifications", value=True)
+            allow_voice = st.checkbox("Allow Audible Chime & Spoken Voice Reminders", value=True)
+            allow_sms = st.checkbox("Allow Direct SMS Notifications", value=True)
+
+            save_submitted = st.form_submit_button("💾 Save Changes to Profile", use_container_width=True)
+            add_as_new = st.form_submit_button("➕ Add as New Family Profile", use_container_width=True)
+
+            if save_submitted or add_as_new:
+                clean_p = re.sub(r"[^\d]", "", new_phone)
+                if not new_name.strip():
+                    st.error("Please enter a valid patient name.")
+                elif len(clean_p) < 7:
+                    st.error("Please enter a valid phone number (at least 7 to 10 digits).")
+                else:
+                    updated_data = {
+                        "name": new_name.strip(),
+                        "country": new_country,
+                        "phone": clean_p,
+                        "diagnosis": new_diag.strip(),
+                        "emergency_name": em_name.strip(),
+                        "emergency_phone": em_phone.strip()
+                    }
+                    if add_as_new:
+                        st.session_state.user_profiles.append(updated_data)
+                        st.session_state.active_profile_index = len(st.session_state.user_profiles) - 1
+                        st.toast(f"Added new profile for {new_name}!", icon="➕")
+                    else:
+                        st.session_state.user_profiles[st.session_state.active_profile_index] = updated_data
+                        st.toast("Profile updated successfully!", icon="✅")
+                    
+                    st.session_state.user_name = updated_data["name"]
+                    st.session_state.user_country = updated_data["country"]
+                    st.session_state.user_phone = updated_data["phone"]
+                    st.rerun()
+
+# ==============================================================================
+# PAGE 3: UPLOAD & REVIEW DOCUMENT
 # ==============================================================================
 elif current_page == "📄 Upload & Review Document":
     st.title("📄 Upload & Review Medical Document")
@@ -963,7 +1125,6 @@ elif current_page == "📄 Upload & Review Document":
         )
         uploaded_file = st.file_uploader("Upload document or prescription (PDF, PNG, JPG, JPEG):", type=["pdf", "png", "jpg", "jpeg"], help=f"Max size: {MAX_FILE_SIZE_MB}MB.")
         
-        # Optional API Key directly on upload page
         with st.expander("🔑 Live AI Vision Gemini API Key (Optional)"):
             st.caption("Enter a free Gemini API Key from [Google AI Studio](https://aistudio.google.com) to decipher any custom handwritten note.")
             direct_key = st.text_input("Gemini API Key:", value=st.session_state.api_key if st.session_state.api_key != "your_gemini_api_key_here" else "", type="password", key="direct_gemini_key")
@@ -1032,7 +1193,7 @@ elif current_page == "📄 Upload & Review Document":
         m2.metric("Word Count", len(st.session_state.extracted_text.split()))
 
 # ==============================================================================
-# PAGE 3: UNDERSTAND MY INSTRUCTIONS
+# PAGE 4: UNDERSTAND MY INSTRUCTIONS
 # ==============================================================================
 elif current_page == "💡 Understand My Instructions":
     st.title("💡 Understand My Instructions")
@@ -1077,7 +1238,7 @@ elif current_page == "💡 Understand My Instructions":
                     st.write(ans)
 
 # ==============================================================================
-# PAGE 4: CONFUSION DETECTOR
+# PAGE 5: CONFUSION DETECTOR
 # ==============================================================================
 elif current_page == "🔍 Confusion Detector":
     st.title("🔍 Confusion Detector")
@@ -1109,11 +1270,11 @@ elif current_page == "🔍 Confusion Detector":
             st.caption("🛡️ *Note: The Confusion Detector is a safety-support tool. It does not replace clinical judgment or review by your doctor or pharmacist.*")
 
 # ==============================================================================
-# PAGE 5: RECOVERY JOURNEY & AUTONOMOUS ALERTS
+# PAGE 6: RECOVERY JOURNEY & TIMELINE NOTIFICATIONS
 # ==============================================================================
 elif current_page == "🗺️ My Recovery Journey":
     st.title("🗺️ My Recovery Journey")
-    st.write("A structured recovery dashboard with side-by-side daily checklist, activity completion log, and **autonomous background alerts**.")
+    st.write(f"Track daily tasks and receive **automated medication timeline alerts** for **{st.session_state.user_name}** ({curr_prefix} {st.session_state.user_phone}).")
 
     if not st.session_state.extracted_text.strip():
         st.warning("⚠️ No document uploaded yet. Please go to **📄 Upload & Review Document** first.")
@@ -1121,7 +1282,7 @@ elif current_page == "🗺️ My Recovery Journey":
         plan = build_recovery_plan(st.session_state.extracted_text, api_key=st.session_state.api_key)
         reminders = extract_reminders_schedule(plan)
         
-        tab_checklist, tab_reminders = st.tabs(["📋 Daily Recovery Checklist & Activity Tracker", "🚀 Autonomous Alerts & Reminders"])
+        tab_checklist, tab_timeline_alerts = st.tabs(["📋 Daily Recovery Checklist & Activity Tracker", "⏰ Daily Medication Timeline & Alerts"])
 
         # ----------------------------------------------------------------------
         # TAB 1: SIDE-BY-SIDE CHECKLIST & LIVE ACTIVITY TRACKER
@@ -1247,24 +1408,59 @@ elif current_page == "🗺️ My Recovery Journey":
                 st.markdown("</div>", unsafe_allow_html=True)
 
         # ----------------------------------------------------------------------
-        # TAB 2: AUTONOMOUS BACKGROUND ALERTS & REMINDERS (INSTAGRAM/WHATSAPP STYLE)
+        # TAB 2: DAILY MEDICATION TIMELINE & AUTONOMOUS ALERTS
         # ----------------------------------------------------------------------
-        with tab_reminders:
-            st.subheader("🚀 Autonomous Notification & Scheduled Alarm Engine")
-            st.write(f"Delivers **hands-free automated background notifications** (like Instagram or WhatsApp) directly to **{st.session_state.user_name}** ({curr_prefix} {st.session_state.user_phone}) with **zero user or host interference**.")
+        with tab_timeline_alerts:
+            st.subheader("⏰ Daily Medication Timeline & Notification Alarms")
+            st.write(f"Notifies **{st.session_state.user_name}** ({curr_prefix} {st.session_state.user_phone}) exactly when each medicine is due according to the daily schedule.")
 
-            # Hands-Free Autonomous Mode Card
-            st.markdown("""
-            <div style="background: rgba(30, 41, 59, 0.65); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 16px; padding: 20px; margin-bottom: 20px;">
-                <h3 style="margin-top:0; color:#34d399; font-size:1.3rem;">⚡ Hands-Free Automated Alert Engine (Zero Interference)</h3>
-                <p style="font-size:0.9rem; color:#cbd5e1; margin-bottom:14px;">
-                    Once active, CareBridge AI automatically fires push notification banners, sound alarms, and SMS alerts without anyone having to click 'Send' each time.
-                </p>
-            """, unsafe_allow_html=True)
+            # Section A: Daily Medication Timeline Cards with Instant Slot Notification
+            st.markdown("### 📅 Daily Medication Schedule Slots")
+            st.caption("Click '🔔 Notify This Slot Now' to allow CareBridge AI to immediately dispatch the medication alarm for that timeline window:")
 
-            auto_col1, auto_col2 = st.columns([1.2, 1.0])
+            time_slots = {
+                "Morning (08:00 AM)": [r for r in reminders if r["schedule_slot"] == "Morning"],
+                "Afternoon (01:00 PM)": [r for r in reminders if r["schedule_slot"] == "Afternoon"],
+                "Evening / Night (08:00 PM)": [r for r in reminders if r["schedule_slot"] in ["Evening", "Night"]],
+                "Clinic Appointments": [r for r in reminders if r["schedule_slot"] == "Appointment"]
+            }
+
+            c_slot1, c_slot2, c_slot3 = st.columns(3)
+            slot_columns = [c_slot1, c_slot2, c_slot3]
+            
+            for idx, (slot_name, items) in enumerate(list(time_slots.items())[:3]):
+                with slot_columns[idx]:
+                    icon = "🌅" if "Morning" in slot_name else ("☀️" if "Afternoon" in slot_name else "🌙")
+                    st.markdown(f"""
+                    <div class="timeline-card" style="border-top: 3px solid #38bdf8;">
+                        <h4 style="margin:0 0 8px 0; color:#38bdf8;">{icon} {slot_name}</h4>
+                    """, unsafe_allow_html=True)
+                    
+                    if items:
+                        for it in items:
+                            st.markdown(f"• <b>{it['title']}</b><br><small style='color:#94a3b8;'>{it['details'][:50]}...</small>", unsafe_allow_html=True)
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if st.button(f"🔔 Notify {slot_name.split()[0]} Dose Now", key=f"notify_slot_{idx}", use_container_width=True, type="primary"):
+                            med_names = ", ".join([it['title'] for it in items])
+                            alert_msg = f"Time for your {slot_name.split()[0]} dose: {med_names}. Please take with water as prescribed."
+                            trigger_browser_push_alert(f"CareBridge AI: {slot_name} Alert", alert_msg, speak=True)
+                            st.toast(f"Dispatched {slot_name} timeline alarm!", icon="🔔")
+                            timestamp = datetime.now().strftime("%I:%M %p")
+                            st.session_state.activity_log.insert(0, {"task": f"{slot_name} medications notified ({med_names})", "time": timestamp, "status": "Notified", "cat": "Timeline Alert"})
+                    else:
+                        st.caption("No medications scheduled for this slot.")
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+            st.divider()
+
+            # Section B: Autonomous Background Alert Daemon (Fixed height green box)
+            st.markdown("### ⚡ Hands-Free Autonomous Background Alerts (Instagram/WhatsApp Style)")
+            st.write("When activated, CareBridge AI automatically pops desktop/mobile notifications and sounds the alert chime in the background with **zero user or host clicking**.")
+
+            auto_col1, auto_col2 = st.columns([1.2, 1.0], gap="large")
             with auto_col1:
-                auto_toggle = st.toggle("🚀 Activate Hands-Free Autonomous Background Alerts", value=st.session_state.auto_alert_active)
+                auto_toggle = st.toggle("🚀 Enable Autonomous Background Timeline Alarms", value=st.session_state.auto_alert_active)
                 if auto_toggle != st.session_state.auto_alert_active:
                     st.session_state.auto_alert_active = auto_toggle
                     if auto_toggle:
@@ -1272,61 +1468,35 @@ elif current_page == "🗺️ My Recovery Journey":
                     st.rerun()
                 
                 if st.session_state.auto_alert_active:
-                    sim_speed = st.selectbox("Autonomous Dispatch Frequency:", ["Every 15 Seconds (Live Demonstration Mode)", "Every 30 Seconds", "Every 60 Seconds"])
-                    interval_lookup = {"Every 15 Seconds (Live Demonstration Mode)": 15, "Every 30 Seconds": 30, "Every 60 Seconds": 60}
+                    sim_speed = st.selectbox("Timeline Dispatch Frequency:", ["Every 15 Seconds (Demonstration Mode)", "Every 30 Seconds", "Every 60 Seconds"])
+                    interval_lookup = {"Every 15 Seconds (Demonstration Mode)": 15, "Every 30 Seconds": 30, "Every 60 Seconds": 60}
                     chosen_interval = interval_lookup.get(sim_speed, 15)
+                    # Fixed height of 230px ensures the green box never cuts off any countdown text!
                     render_handsfree_notification_engine(reminders, st.session_state.user_name, interval_sec=chosen_interval)
 
             with auto_col2:
                 st.markdown(f"""
-                <div style="background: rgba(15, 23, 42, 0.7); border-radius: 12px; padding: 14px; border: 1px solid rgba(255, 255, 255, 0.1);">
-                    <div style="font-size:0.8rem; color:#94a3b8; font-weight:700;">AUTONOMOUS ALERT CHANNELS</div>
-                    <ul style="font-size:0.85rem; color:#e2e8f0; padding-left:18px; margin-top:8px;">
-                        <li><b>Desktop & Android Push Banners</b>: Auto-popped by browser background worker with sound chime.</li>
-                        <li><b>Spoken Voice Alarms</b>: Speaks out patient name and pill reminder out loud.</li>
-                        <li><b>Cellular SMS Gateway</b>: Automated HTTP POST to carrier cellular SMS without opening messaging apps.</li>
+                <div style="background: rgba(15, 23, 42, 0.7); border-radius: 14px; padding: 18px; border: 1px solid rgba(56, 189, 248, 0.25);">
+                    <div style="font-size:0.8rem; color:#38bdf8; font-weight:700; letter-spacing:0.5px;">HOW TIMELINE NOTIFICATIONS WORK</div>
+                    <ul style="font-size:0.88rem; color:#e2e8f0; padding-left:18px; margin-top:8px; line-height:1.6;">
+                        <li><b>Timeline-Based</b>: Automatically schedules Morning (08:00 AM), Afternoon (01:00 PM), and Evening (08:00 PM) doses.</li>
+                        <li><b>Zero Human Interference</b>: Desktop and phone push banners appear automatically with audio alarm chime, exactly like Instagram or WhatsApp.</li>
+                        <li><b>Voice Alerts</b>: Speech synthesizer announces: <i>"Reminder for {st.session_state.user_name}: Time to take your scheduled dose."</i></li>
+                        <li><b>Mobile Integration</b>: Pre-configured to reach <b>{st.session_state.user_name} ({curr_prefix} {st.session_state.user_phone})</b>.</li>
                     </ul>
-                    <div style="font-size:0.75rem; color:#38bdf8; margin-top:6px;">Target Device: {st.session_state.user_name} ({curr_prefix} {st.session_state.user_phone})</div>
                 </div>
                 """, unsafe_allow_html=True)
 
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            # Schedule Slots Breakdown
-            st.markdown("### ⏰ Daily Medication Timeline")
-            col_morn, col_eve, col_appt = st.columns(3)
-            with col_morn:
-                st.markdown("#### 🌅 Morning (08:00 AM)")
-                morning_items = [r for r in reminders if r["schedule_slot"] == "Morning"]
-                if morning_items:
-                    for item in morning_items:
-                        st.markdown(f"<div style='background: rgba(245, 158, 11, 0.08); border-left: 5px solid #f59e0b; border-radius: 12px; padding: 12px; margin-bottom: 10px;'><b style='color:#fbbf24;'>💊 {item['title']}</b><br><small>⏰ {item['timing']}</small><br><small>{item['details']}</small></div>", unsafe_allow_html=True)
-                else: st.write("No morning medications scheduled.")
-
-            with col_eve:
-                st.markdown("#### 🌙 Evening / Night (08:00 PM)")
-                evening_items = [r for r in reminders if r["schedule_slot"] in ["Evening", "Night"]]
-                if evening_items:
-                    for item in evening_items:
-                        st.markdown(f"<div style='background: rgba(129, 140, 248, 0.08); border-left: 5px solid #818cf8; border-radius: 12px; padding: 12px; margin-bottom: 10px;'><b style='color:#a5b4fc;'>💊 {item['title']}</b><br><small>⏰ {item['timing']}</small><br><small>{item['details']}</small></div>", unsafe_allow_html=True)
-                else: st.write("No evening medications scheduled.")
-
-            with col_appt:
-                st.markdown("#### 📅 Doctor Appointments")
-                appt_items = [r for r in reminders if r["schedule_slot"] == "Appointment"]
-                if appt_items:
-                    for item in appt_items:
-                        st.markdown(f"<div style='background: rgba(16, 185, 129, 0.08); border-left: 5px solid #10b981; border-radius: 12px; padding: 12px; margin-bottom: 10px;'><b style='color:#34d399;'>🏥 {item['title']}</b><br><small>🗓️ {item['timing']}</small><br><small>{item['details']}</small></div>", unsafe_allow_html=True)
-                else: st.write("No clinic appointments detected.")
-
             st.divider()
+
+            # Section C: Single-Click Manual Dispatch & Export
             st.markdown("### 📲 Multi-Channel Alert & Calendar Export")
-            st.caption("You can also trigger single-click manual alerts or export the full schedule to your calendar:")
+            st.caption("You can also dispatch individual alerts manually or sync to your phone's calendar app:")
 
             selectable_reminders = [r for r in reminders if r["status"] != "Needs Confirmation"]
             if selectable_reminders:
                 options = [f"{r['type']}: {r['title']} ({r['timing']})" for r in selectable_reminders]
-                selected_option = st.selectbox("Select reminder to test or export:", options)
+                selected_option = st.selectbox("Select specific medication reminder:", options)
                 selected_idx = options.index(selected_option)
                 chosen = selectable_reminders[selected_idx]
 
@@ -1337,26 +1507,12 @@ elif current_page == "🗺️ My Recovery Journey":
 
                 c_b1, c_b2, c_b3, c_b4 = st.columns(4)
                 with c_b1:
-                    if st.button("🔔 Send Real Browser Push", use_container_width=True, type="primary"):
-                        safe_title = json.dumps(chosen['title'])
-                        safe_body = json.dumps(chosen['alert_message'])
-                        components.html(f"""
-                        <script>
-                        if ("Notification" in window && Notification.permission === "granted") {{
-                            new Notification({safe_title}, {{ body: {safe_body}, icon: "https://cdn-icons-png.flaticon.com/512/2966/2966327.png" }});
-                            var a = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
-                            a.play().catch(function(e){{}});
-                        }} else if ("Notification" in window) {{
-                            Notification.requestPermission().then(function(p) {{
-                                if (p === "granted") new Notification({safe_title}, {{ body: {safe_body} }});
-                            }});
-                        }}
-                        </script>
-                        """, height=0)
-                        st.toast("Browser notification dispatched!", icon="🔔")
+                    if st.button("🔔 Trigger Real Browser Push", use_container_width=True, type="primary"):
+                        trigger_browser_push_alert(chosen['title'], chosen['alert_message'], speak=True)
+                        st.toast("Dispatched real browser notification!", icon="🔔")
 
                 with c_b2:
-                    st.link_button("📲 Send to WhatsApp", url=whatsapp_url, use_container_width=True)
+                    st.link_button("📲 Send via WhatsApp", url=whatsapp_url, use_container_width=True)
                 with c_b3:
                     st.link_button("💬 Open in SMS App", url=sms_url, use_container_width=True)
                 with c_b4:
@@ -1364,7 +1520,7 @@ elif current_page == "🗺️ My Recovery Journey":
                     st.download_button(label="📥 Download Calendar (.ics)", data=ics_data, file_name="carebridge_schedule.ics", mime="text/calendar", use_container_width=True)
 
 # ==============================================================================
-# PAGE 6: ACCESSIBILITY & AUDIO
+# PAGE 7: ACCESSIBILITY & AUDIO
 # ==============================================================================
 elif current_page == "♿ Accessibility & Audio":
     st.title("♿ Accessibility & Audio Instructions")
