@@ -6,7 +6,6 @@ import io
 import re
 import json
 import base64
-import random
 import urllib.parse
 from datetime import datetime
 import requests
@@ -149,7 +148,6 @@ Follow-up & Emergency Instructions:
 - Alternate note mentions returning on 25-Oct-2026.
 - 🚨 Emergency Warning: If severe chest tightness, sweating, or breathlessness occurs, report to emergency room immediately."""
 
-# Country phone codes dictionary
 COUNTRY_CODES = {
     "🇮🇳 India (+91)": "+91",
     "🇺🇸 USA / Canada (+1)": "+1",
@@ -161,17 +159,6 @@ COUNTRY_CODES = {
     "🇩🇪 Germany (+49)": "+49",
     "🌐 International (+00)": "+00"
 }
-
-# Realistic Patient Profile Generator Pool
-RANDOM_PATIENTS_POOL = [
-    {"name": "Ananya Sharma", "country": "🇮🇳 India (+91)", "phone": "9845123456", "age": 42, "gender": "Female", "diagnosis": "Hypertension & Cardiology Recovery", "emergency_name": "Ramesh Sharma", "emergency_phone": "9845199999"},
-    {"name": "David Miller", "country": "🇺🇸 USA / Canada (+1)", "phone": "5550192834", "age": 38, "gender": "Male", "diagnosis": "Post-Op Laparoscopic Recovery", "emergency_name": "Sarah Miller", "emergency_phone": "5550148877"},
-    {"name": "Priya Patel", "country": "🇮🇳 India (+91)", "phone": "9820145892", "age": 55, "gender": "Female", "diagnosis": "Cardiac Care & Low Sodium Diet", "emergency_name": "Suresh Patel", "emergency_phone": "9820199881"},
-    {"name": "Rahul Verma", "country": "🇮🇳 India (+91)", "phone": "9901234567", "age": 48, "gender": "Male", "diagnosis": "Post-Angioplasty Stent Recovery", "emergency_name": "Pooja Verma", "emergency_phone": "9901200998"},
-    {"name": "Michael Chang", "country": "🇺🇸 USA / Canada (+1)", "phone": "5550149981", "age": 50, "gender": "Male", "diagnosis": "Cardiovascular Blood Pressure Care", "emergency_name": "Grace Chang", "emergency_phone": "5550141122"},
-    {"name": "Sneha Iyer", "country": "🇮🇳 India (+91)", "phone": "9711290876", "age": 31, "gender": "Female", "diagnosis": "General Surgery Post-Op Care", "emergency_name": "Karthik Iyer", "emergency_phone": "9711288776"},
-    {"name": "Aarav Reddy", "country": "🇮🇳 India (+91)", "phone": "9705862237", "age": 34, "gender": "Male", "diagnosis": "Clinical Prescription Follow-Up", "emergency_name": "Lakshmi Reddy", "emergency_phone": "9705811223"}
-]
 
 # ==============================================================================
 # 2. DOCUMENT PROCESSING & HANDWRITING AI VISION ENGINE
@@ -827,9 +814,9 @@ st.markdown("""
     .feature-card:hover { transform: translateY(-4px); border-color: rgba(99, 102, 241, 0.55); }
     
     .profile-card {
-        background: linear-gradient(135deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.85));
-        border: 1px solid rgba(56, 189, 248, 0.4);
-        border-radius: 16px; padding: 22px; margin-bottom: 20px;
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+        border: 1px solid rgba(56, 189, 248, 0.45);
+        border-radius: 16px; padding: 24px; margin-bottom: 20px;
     }
     .activity-card {
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.85));
@@ -873,61 +860,54 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Session State Initialization (Randomized Profile Initializer)
-if "user_profiles" not in st.session_state:
-    st.session_state.user_profiles = [
-        {"name": "Ananya Sharma", "country": "🇮🇳 India (+91)", "phone": "9845123456", "age": 42, "gender": "Female", "diagnosis": "Cardiac Care & Low Sodium Diet", "emergency_name": "Ramesh Sharma", "emergency_phone": "9845199999"},
-        {"name": "David Miller", "country": "🇺🇸 USA / Canada (+1)", "phone": "5550192834", "age": 38, "gender": "Male", "diagnosis": "Post-Op Recovery", "emergency_name": "Sarah Miller", "emergency_phone": "5550148877"},
-        {"name": "Aarav Reddy", "country": "🇮🇳 India (+91)", "phone": "9705862237", "age": 34, "gender": "Male", "diagnosis": "Cardiology Prescription Follow-up", "emergency_name": "Lakshmi Reddy", "emergency_phone": "9705811223"}
-    ]
-if "active_profile_index" not in st.session_state: st.session_state.active_profile_index = 0
-active_p = st.session_state.user_profiles[st.session_state.active_profile_index]
-
-if "user_name" not in st.session_state: st.session_state.user_name = active_p["name"]
-if "user_country" not in st.session_state: st.session_state.user_country = active_p["country"]
-if "user_phone" not in st.session_state: st.session_state.user_phone = active_p["phone"]
+# Session State Initialization
+if "user_name" not in st.session_state: st.session_state.user_name = "Karthik"
+if "user_country" not in st.session_state: st.session_state.user_country = "🇮🇳 India (+91)"
+if "user_phone" not in st.session_state: st.session_state.user_phone = "9705862237"
+if "is_logged_in" not in st.session_state: st.session_state.is_logged_in = True
+if "family_members" not in st.session_state: st.session_state.family_members = []
 if "extracted_text" not in st.session_state: st.session_state.extracted_text = ""
 if "uploaded_filename" not in st.session_state: st.session_state.uploaded_filename = ""
 if "api_key" not in st.session_state: st.session_state.api_key = os.getenv("GEMINI_API_KEY", "")
 if "checklist_state" not in st.session_state: st.session_state.checklist_state = {}
 if "activity_log" not in st.session_state: st.session_state.activity_log = []
-if "is_signed_in" not in st.session_state: st.session_state.is_signed_in = True
 if "auto_alert_active" not in st.session_state: st.session_state.auto_alert_active = False
 
-# Helper: Random Profile Generator
-def randomize_active_profile():
-    choice = random.choice(RANDOM_PATIENTS_POOL)
-    st.session_state.user_name = choice["name"]
-    st.session_state.user_country = choice["country"]
-    st.session_state.user_phone = choice["phone"]
-    st.session_state.user_profiles[st.session_state.active_profile_index] = choice
-
 # ==============================================================================
-# SIDEBAR: BRANDING & PROFILE SHORTCUT
+# SIDEBAR: BRANDING & PROFILE STATUS
 # ==============================================================================
 st.sidebar.markdown("""
 <div style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.16) 0%, rgba(99, 102, 241, 0.22) 100%); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 16px; padding: 18px 14px; margin-bottom: 15px; text-align: center;">
     <div style="font-size: 2.2rem; margin-bottom: 4px;">🌉</div>
     <div style="font-size: 1.35rem; font-weight: 800; color: #38bdf8;">CareBridge AI</div>
     <div style="font-size: 0.8rem; color: #cbd5e1; opacity: 0.9;">Your Personal Recovery Companion</div>
-    <div style="margin-top: 8px;"><span style="background: rgba(56, 189, 248, 0.16); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 20px; font-size: 0.72rem; padding: 3px 10px; font-weight: 600;">v3.0 Multi-Profile</span></div>
 </div>
 """, unsafe_allow_html=True)
 
-# Connected Profile Badge
 curr_prefix = COUNTRY_CODES.get(st.session_state.user_country, "+91")
-st.sidebar.markdown(f"""
-<div style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px;">
-    <div style="font-size: 0.75rem; color: #4ade80; font-weight: 700; letter-spacing: 0.5px;">🟢 CONNECTED PATIENT</div>
-    <div style="font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin-top: 2px;">{st.session_state.user_name}</div>
-    <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 2px;">📱 {curr_prefix} {st.session_state.user_phone}</div>
-</div>
-""", unsafe_allow_html=True)
 
-if st.sidebar.button("🎲 Generate Random Profile", use_container_width=True):
-    randomize_active_profile()
-    st.toast(f"Switched to {st.session_state.user_name} ({st.session_state.user_phone})!", icon="🎲")
-    st.rerun()
+if st.session_state.is_logged_in and st.session_state.user_name:
+    st.sidebar.markdown(f"""
+    <div style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;">
+        <div style="font-size: 0.75rem; color: #4ade80; font-weight: 700; letter-spacing: 0.5px;">🟢 LOGGED IN</div>
+        <div style="font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin-top: 2px;">{st.session_state.user_name}</div>
+        <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 2px;">📱 {curr_prefix} {st.session_state.user_phone}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.sidebar.button("🚪 Sign Out", key="sidebar_signout_btn", use_container_width=True):
+        st.session_state.is_logged_in = False
+        st.session_state.user_name = ""
+        st.session_state.user_phone = ""
+        st.toast("Signed out successfully!", icon="🚪")
+        st.rerun()
+else:
+    st.sidebar.markdown("""
+    <div style="background: rgba(255, 255, 255, 0.04); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;">
+        <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 700;">⚪ NOT LOGGED IN</div>
+        <div style="font-size: 0.82rem; color: #cbd5e1; margin-top: 4px;">Sign in on the Login page to personalize alerts.</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 nav_pages = [
     "🏠 Home",
@@ -969,7 +949,7 @@ if current_page == "🏠 Home":
         <div>
             <span class="badge-pill badge-blue">✍️ Doctor Handwriting AI Vision</span>
             <span class="badge-pill badge-green">⏰ Timeline-Based Notifications</span>
-            <span class="badge-pill badge-purple">🔐 Patient Profile Management</span>
+            <span class="badge-pill badge-purple">🔐 User & Family Profiles</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -997,117 +977,162 @@ if current_page == "🏠 Home":
     st.warning("⚠️ **Important Medical Disclaimer**: CareBridge AI is an educational recovery assistant prototype. It does **not** diagnose medical conditions, alter physician prescriptions, or replace professional medical advice. Always consult your doctor or hospital pharmacist for clinical decisions.")
 
 # ==============================================================================
-# PAGE 2: PATIENT LOGIN & PROFILE MANAGEMENT
+# PAGE 2: PATIENT LOGIN & PROFILE (CLEAN, FUNCTIONAL & WORKING!)
 # ==============================================================================
 elif current_page == "🔐 Patient Login & Profile":
-    st.title("🔐 Patient Login & Profile Management")
-    st.write("Manage your patient profile, mobile contact format, emergency contacts, and notification permissions.")
+    st.title("🔐 Patient Login & Profile")
 
-    prof_col1, prof_col2 = st.columns([1.1, 0.9], gap="large")
+    # CASE A: USER IS NOT LOGGED IN -> SHOW REAL LOGIN FORM
+    if not st.session_state.is_logged_in or not st.session_state.user_name:
+        st.write("Please sign in with your Name and Mobile Number to receive personalized recovery reminders and medication alerts.")
 
-    with prof_col1:
-        st.markdown("### 👤 Active Patient Identity")
-        st.markdown(f"""
-        <div class="profile-card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <span style="font-size:1.8rem;">👤</span>
-                    <h2 style="margin:4px 0; color:#38bdf8;">{st.session_state.user_name}</h2>
-                    <div style="font-size:0.95rem; color:#cbd5e1;">📱 {curr_prefix} {st.session_state.user_phone} &nbsp;<span style="background:rgba(34,197,94,0.2); color:#4ade80; padding:2px 8px; border-radius:12px; font-size:0.75rem;">Verified</span></div>
-                </div>
-                <div style="text-align:right;">
-                    <span style="background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); border-radius:20px; font-size:0.8rem; padding:4px 12px; font-weight:600;">Active Account</span>
-                </div>
-            </div>
-            <hr style="border-color:rgba(255,255,255,0.1); margin:14px 0;">
-            <div style="font-size:0.88rem; color:#94a3b8; line-height:1.7;">
-                <div>🏥 <b>Primary Recovery Focus:</b> {st.session_state.user_profiles[st.session_state.active_profile_index].get('diagnosis', 'General Post-Op Recovery')}</div>
-                <div>🚨 <b>Emergency Contact:</b> {st.session_state.user_profiles[st.session_state.active_profile_index].get('emergency_name', 'Family Caregiver')} ({curr_prefix} {st.session_state.user_profiles[st.session_state.active_profile_index].get('emergency_phone', '9845199999')})</div>
-                <div>🔔 <b>Timeline Notifications:</b> <span style="color:#4ade80; font-weight:600;">Authorized</span></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        login_c1, login_c2 = st.columns([1.2, 0.8])
+        with login_c1:
+            st.markdown("""
+            <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 16px; padding: 24px;">
+                <h3 style="margin-top:0; color:#38bdf8;">🔑 Sign In / Login</h3>
+            """, unsafe_allow_html=True)
 
-        st.markdown("#### 🎲 Generate or Switch Profiles Instantly")
-        g_c1, g_c2 = st.columns(2)
-        with g_c1:
-            if st.button("🎲 Generate Random Patient Profile", use_container_width=True, type="primary"):
-                randomize_active_profile()
-                st.toast(f"Randomized to {st.session_state.user_name}!", icon="🎲")
-                st.rerun()
-        with g_c2:
-            if st.button("🚪 Sign Out / Reset", use_container_width=True):
-                st.session_state.user_name = "Guest Patient"
-                st.session_state.user_phone = "5550192834"
-                st.rerun()
+            with st.form("real_login_form"):
+                inp_name = st.text_input("Full Name:", placeholder="e.g. John Smith or Karthik")
+                inp_country = st.selectbox("Country Code:", list(COUNTRY_CODES.keys()), index=0)
+                inp_phone = st.text_input("Mobile Number:", placeholder="e.g. 9876543210")
+                
+                login_btn = st.form_submit_button("🔑 Sign In / Login", use_container_width=True, type="primary")
 
-        st.markdown("#### 👨‍👩‍👧 Saved Family Profiles")
-        for idx, prof in enumerate(st.session_state.user_profiles):
-            is_active = (idx == st.session_state.active_profile_index)
-            border_col = "#38bdf8" if is_active else "rgba(255,255,255,0.1)"
-            status_tag = "🟢 Active" if is_active else "Select"
-            
-            p_c1, p_c2 = st.columns([3, 1])
-            with p_c1:
-                st.markdown(f"<div style='border:1px solid {border_col}; border-radius:10px; padding:10px 14px; margin-bottom:8px; background:rgba(255,255,255,0.03);'><b>{prof['name']}</b> &nbsp; <small style='color:#94a3b8;'>({prof['country']} {prof['phone']})</small><br><small style='color:#cbd5e1;'>{prof['diagnosis']}</small></div>", unsafe_allow_html=True)
-            with p_c2:
-                if not is_active:
-                    if st.button(f"Switch", key=f"switch_prof_{idx}", use_container_width=True):
-                        st.session_state.active_profile_index = idx
-                        st.session_state.user_name = prof["name"]
-                        st.session_state.user_country = prof["country"]
-                        st.session_state.user_phone = prof["phone"]
-                        st.rerun()
-                else:
-                    st.button("Active", key=f"active_prof_{idx}", disabled=True, use_container_width=True)
-
-    with prof_col2:
-        st.markdown("### ✏️ Edit or Add Patient Profile")
-        with st.form("profile_edit_form"):
-            new_name = st.text_input("Full Patient / Caregiver Name:", value=st.session_state.user_name)
-            new_country = st.selectbox("Country Dialing Code:", list(COUNTRY_CODES.keys()), index=list(COUNTRY_CODES.keys()).index(st.session_state.user_country) if st.session_state.user_country in COUNTRY_CODES else 0)
-            new_phone = st.text_input("Mobile Phone Number:", value=st.session_state.user_phone, placeholder="e.g. 9845123456")
-            new_diag = st.text_input("Diagnosis / Recovery Reason:", value=st.session_state.user_profiles[st.session_state.active_profile_index].get('diagnosis', 'Cardiac Follow-Up'))
-            
-            st.markdown("##### 🚨 Emergency Contact")
-            em_name = st.text_input("Emergency Contact Name:", value=st.session_state.user_profiles[st.session_state.active_profile_index].get('emergency_name', 'Family Member'))
-            em_phone = st.text_input("Emergency Phone Number:", value=st.session_state.user_profiles[st.session_state.active_profile_index].get('emergency_phone', '9845199999'))
-            
-            st.markdown("##### 🔔 Notification Authorization")
-            allow_push = st.checkbox("Allow Browser Desktop/Mobile Push Notifications", value=True)
-            allow_voice = st.checkbox("Allow Audible Chime & Spoken Voice Reminders", value=True)
-            allow_sms = st.checkbox("Allow Direct SMS Notifications", value=True)
-
-            save_submitted = st.form_submit_button("💾 Save Changes to Profile", use_container_width=True)
-            add_as_new = st.form_submit_button("➕ Add as New Family Profile", use_container_width=True)
-
-            if save_submitted or add_as_new:
-                clean_p = re.sub(r"[^\d]", "", new_phone)
-                if not new_name.strip():
-                    st.error("Please enter a valid patient name.")
-                elif len(clean_p) < 7:
-                    st.error("Please enter a valid phone number (at least 7 to 10 digits).")
-                else:
-                    updated_data = {
-                        "name": new_name.strip(),
-                        "country": new_country,
-                        "phone": clean_p,
-                        "diagnosis": new_diag.strip(),
-                        "emergency_name": em_name.strip(),
-                        "emergency_phone": em_phone.strip()
-                    }
-                    if add_as_new:
-                        st.session_state.user_profiles.append(updated_data)
-                        st.session_state.active_profile_index = len(st.session_state.user_profiles) - 1
-                        st.toast(f"Added new profile for {new_name}!", icon="➕")
+                if login_btn:
+                    clean_p = re.sub(r"[^\d]", "", inp_phone)
+                    if not inp_name.strip():
+                        st.error("Please enter your name.")
+                    elif len(clean_p) < 7:
+                        st.error("Please enter a valid mobile number (at least 7 to 10 digits).")
                     else:
-                        st.session_state.user_profiles[st.session_state.active_profile_index] = updated_data
+                        st.session_state.is_logged_in = True
+                        st.session_state.user_name = inp_name.strip()
+                        st.session_state.user_country = inp_country
+                        st.session_state.user_phone = clean_p
+                        st.toast(f"Welcome, {inp_name}!", icon="👋")
+                        st.rerun()
+
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+        with login_c2:
+            st.markdown("""
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px;">
+                <h4 style="color:#a5b4fc; margin-top:0;">🛡️ Private & Secure</h4>
+                <p style="font-size:0.85rem; color:#cbd5e1; line-height:1.6;">
+                    Your profile information is used strictly in this browser session to personalize your medication schedule and route alerts to your verified phone.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # CASE B: USER IS LOGGED IN -> SHOW CLEAN PROFILE + REAL WORKING SIGN OUT + FAMILY MEMBERS
+    else:
+        st.write(f"Logged in as **{st.session_state.user_name}**. Manage your profile or add family members below.")
+
+        prof_col1, prof_col2 = st.columns([1.1, 0.9], gap="large")
+
+        with prof_col1:
+            st.markdown(f"""
+            <div class="profile-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="font-size:0.75rem; color:#4ade80; font-weight:700; letter-spacing:0.5px;">🟢 ACTIVE USER PROFILE</div>
+                        <h2 style="margin:4px 0 6px 0; color:#38bdf8;">{st.session_state.user_name}</h2>
+                        <div style="font-size:1rem; color:#f1f5f9; font-weight:600;">📱 {curr_prefix} {st.session_state.user_phone}</div>
+                    </div>
+                    <div>
+                        <span style="background:rgba(34,197,94,0.2); color:#4ade80; border:1px solid #22c55e; border-radius:20px; font-size:0.8rem; padding:4px 12px; font-weight:700;">Logged In</span>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # REAL WORKING SIGN OUT BUTTON
+            if st.button("🚪 Sign Out", key="main_signout_btn", use_container_width=True, type="secondary"):
+                st.session_state.is_logged_in = False
+                st.session_state.user_name = ""
+                st.session_state.user_phone = ""
+                st.toast("Signed out successfully!", icon="🚪")
+                st.rerun()
+
+            st.divider()
+
+            # EDIT USER PROFILE FORM (JUST NAME & PHONE)
+            st.markdown("### ✏️ Edit Profile")
+            with st.form("edit_profile_simple"):
+                upd_name = st.text_input("Name:", value=st.session_state.user_name)
+                upd_country = st.selectbox("Country Code:", list(COUNTRY_CODES.keys()), index=list(COUNTRY_CODES.keys()).index(st.session_state.user_country) if st.session_state.user_country in COUNTRY_CODES else 0)
+                upd_phone = st.text_input("Mobile Number:", value=st.session_state.user_phone)
+                
+                save_prof_btn = st.form_submit_button("💾 Save Profile Changes", use_container_width=True, type="primary")
+
+                if save_prof_btn:
+                    clean_p = re.sub(r"[^\d]", "", upd_phone)
+                    if not upd_name.strip():
+                        st.error("Please enter a name.")
+                    elif len(clean_p) < 7:
+                        st.error("Please enter a valid mobile number.")
+                    else:
+                        st.session_state.user_name = upd_name.strip()
+                        st.session_state.user_country = upd_country
+                        st.session_state.user_phone = clean_p
                         st.toast("Profile updated successfully!", icon="✅")
-                    
-                    st.session_state.user_name = updated_data["name"]
-                    st.session_state.user_country = updated_data["country"]
-                    st.session_state.user_phone = updated_data["phone"]
-                    st.rerun()
+                        st.rerun()
+
+        with prof_col2:
+            st.markdown("### 👨‍👩‍👧 Family Members (Optional)")
+            st.caption("Add family members (e.g., Mother, Father, Spouse, Child) to send medication alerts directly to their phones:")
+
+            with st.form("add_family_form"):
+                fam_name = st.text_input("Family Member Name:", placeholder="e.g. Suresh (Father)")
+                fam_relation = st.selectbox("Relationship:", ["Mother", "Father", "Spouse", "Child", "Grandparent", "Other"])
+                fam_country = st.selectbox("Country Code:", list(COUNTRY_CODES.keys()), index=0, key="fam_country_select")
+                fam_phone = st.text_input("Mobile Number:", placeholder="e.g. 9845123456")
+                
+                add_fam_btn = st.form_submit_button("➕ Add Family Member", use_container_width=True)
+
+                if add_fam_btn:
+                    clean_fam_p = re.sub(r"[^\d]", "", fam_phone)
+                    if not fam_name.strip():
+                        st.error("Please enter family member's name.")
+                    elif len(clean_fam_p) < 7:
+                        st.error("Please enter a valid phone number.")
+                    else:
+                        st.session_state.family_members.append({
+                            "name": fam_name.strip(),
+                            "relation": fam_relation,
+                            "country": fam_country,
+                            "phone": clean_fam_p
+                        })
+                        st.toast(f"Added {fam_name} to family members!", icon="👨‍👩‍👧")
+                        st.rerun()
+
+            if st.session_state.family_members:
+                st.markdown("#### 📋 Saved Family Members")
+                for f_idx, fam in enumerate(st.session_state.family_members):
+                    f_prefix = COUNTRY_CODES.get(fam["country"], "+91")
+                    f_c1, f_c2 = st.columns([2.5, 1.5])
+                    with f_c1:
+                        st.markdown(f"""
+                        <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:10px 12px; margin-bottom:8px;">
+                            <b>{fam['name']}</b> <span style="background:rgba(99,102,241,0.2); color:#a5b4fc; padding:2px 8px; border-radius:10px; font-size:0.75rem;">{fam['relation']}</span><br>
+                            <small style="color:#94a3b8;">📱 {f_prefix} {fam['phone']}</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    with f_c2:
+                        btn_sub1, btn_sub2 = st.columns(2)
+                        with btn_sub1:
+                            if st.button("Use", key=f"use_fam_{f_idx}", help="Set as active recipient for alerts"):
+                                st.session_state.user_name = fam["name"]
+                                st.session_state.user_country = fam["country"]
+                                st.session_state.user_phone = fam["phone"]
+                                st.toast(f"Active recipient set to {fam['name']}!", icon="👤")
+                                st.rerun()
+                        with btn_sub2:
+                            if st.button("🗑️", key=f"del_fam_{f_idx}", help="Remove family member"):
+                                st.session_state.family_members.pop(f_idx)
+                                st.rerun()
 
 # ==============================================================================
 # PAGE 3: UPLOAD & REVIEW DOCUMENT
@@ -1471,7 +1496,6 @@ elif current_page == "🗺️ My Recovery Journey":
                     sim_speed = st.selectbox("Timeline Dispatch Frequency:", ["Every 15 Seconds (Demonstration Mode)", "Every 30 Seconds", "Every 60 Seconds"])
                     interval_lookup = {"Every 15 Seconds (Demonstration Mode)": 15, "Every 30 Seconds": 30, "Every 60 Seconds": 60}
                     chosen_interval = interval_lookup.get(sim_speed, 15)
-                    # Fixed height of 230px ensures the green box never cuts off any countdown text!
                     render_handsfree_notification_engine(reminders, st.session_state.user_name, interval_sec=chosen_interval)
 
             with auto_col2:
