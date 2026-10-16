@@ -1,6 +1,8 @@
 # 🌉 CareBridge AI — Your Personal Recovery Companion
 
 > *"From hospital instructions to confident recovery."*
+>
+> **Lead Developers & Architects:** **Sree Charan** & **Karthik**
 
 ---
 
@@ -55,7 +57,8 @@ CareBridgeAI/
 │   ├── document_reader.py         # PDF text extraction & file validation
 │   ├── medical_explainer.py       # Plain language translations & grounded Q&A
 │   ├── confusion_detector.py      # The Unique Feature: Ambiguity detection
-│   └── recovery_planner.py        # Categorized recovery map & daily checklist
+│   ├── recovery_planner.py        # Categorized recovery map & daily checklist
+│   └── disease_diet_planner.py    # AI Disease-Specific Clinical Nutrition Planner
 │
 ├── sample_documents/
 │   ├── generate_samples.py        # Script to generate fictional test documents
@@ -63,9 +66,10 @@ CareBridgeAI/
 │   └── sample_discharge_note.png
 │
 └── tests/
-    ├── test_document_reader.py    # Unit tests for upload & extraction
-    ├── test_confusion_detector.py # Unit tests for Confusion Detector
-    └── test_recovery_planner.py   # Unit tests for reminders schedule & calendar export
+    ├── test_document_reader.py       # Unit tests for upload & extraction
+    ├── test_confusion_detector.py    # Unit tests for Confusion Detector
+    ├── test_recovery_planner.py      # Unit tests for reminders schedule & calendar export
+    └── test_disease_diet_planner.py  # Unit tests for clinical diet planning & metadata filtering
 ```
 
 ---
@@ -101,7 +105,7 @@ Run all unit tests with one command:
 ```
 Expected output:
 ```text
-Ran 11 tests in 0.9s
+Ran 15 tests in 1.5s
 OK
 ```
 
