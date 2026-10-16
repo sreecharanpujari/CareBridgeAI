@@ -12,6 +12,12 @@ import requests
 from pypdf import PdfReader
 from PIL import Image, ImageEnhance, ImageOps
 from gtts import gTTS
+from modules.disease_diet_planner import (
+    is_document_metadata_line,
+    detect_conditions_from_text,
+    generate_disease_diet_plan,
+    format_diet_plan_markdown
+)
 
 # ==============================================================================
 # 1. CONSTANTS, SAMPLE DOCUMENTS & CLINICAL GLOSSARY
@@ -431,14 +437,19 @@ def explain_terms_in_text(text: str):
 
 def get_medical_explanation(document_text: str, api_key: str = None):
     if not document_text.strip():
-        return {"summary": "No document text available.", "glossary": {}, "mode": "None"}
+        return {"summary": "No document text available.", "glossary": {}, "diet_plan": {}, "mode": "None"}
     
     key = api_key or os.getenv("GEMINI_API_KEY")
+    diet_data = generate_disease_diet_plan(document_text, api_key=key)
+
     if key and key.strip() and key != "your_gemini_api_key_here":
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key.strip()}"
             prompt = f"""You are the Medical Explainer for CareBridge AI. Convert this discharge summary or prescription into simple, patient-friendly language.
-Strict Rules: Preserve all medication names, dosages, and dates exactly without alterations.
+Strict Rules:
+1. Preserve all medication names, dosages, and dates exactly without alterations.
+2. Under NO circumstances should hospital address, DEA#, license numbers, or clinic header lines be included in the dietary or recovery advice.
+3. Integrate tailored dietary and lifestyle advice based on the patient's conditions ({', '.join(diet_data.get('conditions', []))}).
 Text:
 \"\"\"{document_text}\"\"\"
 Return a JSON object with:
@@ -452,11 +463,12 @@ Return a JSON object with:
                 raw = re.sub(r"\n?```$", "", raw)
             res = json.loads(raw)
             res["mode"] = "Gemini 2.5 Flash AI"
+            res["diet_plan"] = diet_data
             return res
         except Exception:
             pass
 
-    # Local Reliable Engine
+    # Local Reliable Engine with Disease-Targeted Diet Planner
     lines = [l.strip() for l in document_text.split("\n") if l.strip()]
     sections = {"Medications": [], "Diet & Daily Care": [], "Follow-Up Appointments": [], "Warning Signs (Red Flags)": []}
     curr = "General Care"
@@ -467,25 +479,37 @@ Return a JSON object with:
         elif any(w in low for w in ["diet", "activity", "wound", "lifestyle"]): curr = "Diet & Daily Care"; continue
         elif any(w in low for w in ["follow-up", "appointment", "clinic", "review in"]): curr = "Follow-Up Appointments"; continue
         elif any(w in low for w in ["warning", "red flag", "emergency"]): curr = "Warning Signs (Red Flags)"; continue
+        
+        # Strictly skip hospital address, DEA, physician, license, patient demographics
+        if is_document_metadata_line(l):
+            continue
+
         cleaned = l.lstrip("-*•1234567890. ")
         if cleaned:
             if any(w in low for w in ["mg", "tablet", "tab", "cap", "bid", "tid", "qd", "od"]) and curr != "Warning Signs (Red Flags)":
                 sections["Medications"].append(cleaned)
             elif curr in sections:
                 sections[curr].append(cleaned)
-            else:
-                sections["Diet & Daily Care"].append(cleaned)
     
     parts = ["### 🌟 Plain Language Summary\nHere is your discharge summary or prescription explained in simple everyday words:\n"]
     for s_name, items in sections.items():
-        if items:
+        if items and s_name != "Diet & Daily Care":
             parts.append(f"#### 📌 {s_name}")
             for it in items:
                 if s_name == "Medications": parts.append(f"- **{it}** *(Take exactly as prescribed; do not skip or change dose)*")
                 elif s_name == "Warning Signs (Red Flags)": parts.append(f"- 🚨 **{it}** *(Seek immediate emergency care if this occurs)*")
                 else: parts.append(f"- {it}")
             parts.append("")
-    return {"summary": "\n".join(parts), "glossary": explain_terms_in_text(document_text), "mode": "Built-in Safety Parser"}
+
+    # Append AI Disease-Specific Diet Plan
+    parts.append(format_diet_plan_markdown(diet_data))
+
+    return {
+        "summary": "\n".join(parts),
+        "glossary": explain_terms_in_text(document_text),
+        "diet_plan": diet_data,
+        "mode": "CareBridge Clinical AI Parser"
+    }
 
 def answer_patient_question(document_text: str, question: str, api_key: str = None):
     if not document_text.strip(): return "Please upload a document first."
@@ -529,10 +553,15 @@ def build_recovery_plan(document_text: str, api_key: str = None):
         lower = line.lower()
         cleaned = line.lstrip("-*•1234567890. ")
         if not cleaned: continue
+        
+        # Skip hospital addresses, DEA, doctor credentials, and patient demographics
+        if is_document_metadata_line(line):
+            continue
+
         is_bullet = line.startswith(("-", "*", "•"))
         if not is_bullet:
             if any(h in lower for h in ["medication", "medicine", "rx", "prescribed"]) and len(lower) < 35: curr = "medications"; continue
-            elif any(h in lower for h in ["diet", "nutrition", "activity", "lifestyle", "refill"]) and len(lower) < 35: curr = "diet_lifestyle"; continue
+            elif any(h in lower for h in ["diet", "nutrition", "activity", "lifestyle"]) and len(lower) < 35: curr = "diet_lifestyle"; continue
             elif any(h in lower for h in ["follow-up", "appointment", "review in"]) and len(lower) < 35: curr = "followups"; continue
             elif any(h in lower for h in ["wound", "dressing"]) and len(lower) < 35: curr = "wound_care"; continue
             elif any(h in lower for h in ["warning", "red flag", "emergency"]) and len(lower) < 35: curr = "warnings"; continue
@@ -555,6 +584,29 @@ def build_recovery_plan(document_text: str, api_key: str = None):
                 plan["followups"].append({"task": cleaned, "category": "Follow-Up", "status": "Confirmed"})
             elif any(w in lower for w in ["pain", "breath", "emergency"]):
                 plan["warnings"].append({"task": cleaned, "category": "Warning Sign", "status": "Urgent Alert"})
+
+    # If no explicit diet instructions exist in the text, use AI disease-specific diet plan
+    if not plan["diet_lifestyle"]:
+        disease_diet = generate_disease_diet_plan(document_text, api_key=api_key)
+        for f in disease_diet.get("recommended_foods", [])[:2]:
+            plan["diet_lifestyle"].append({
+                "task": f"Recommended Nutrition: {f}",
+                "category": "Diet & Lifestyle",
+                "status": "Confirmed"
+            })
+        for a in disease_diet.get("foods_to_avoid", [])[:2]:
+            plan["diet_lifestyle"].append({
+                "task": f"Dietary Restriction: Avoid {a}",
+                "category": "Diet & Lifestyle",
+                "status": "Confirmed"
+            })
+        if disease_diet.get("hydration_plan"):
+            plan["diet_lifestyle"].append({
+                "task": f"Hydration Target: {disease_diet['hydration_plan']}",
+                "category": "Diet & Lifestyle",
+                "status": "Confirmed"
+            })
+
     return plan
 
 def extract_reminders_schedule(plan):
@@ -938,6 +990,20 @@ with st.sidebar.expander("⚙️ Optional AI Settings"):
     custom_key = st.text_input("Gemini API Key (optional):", value=st.session_state.api_key if st.session_state.api_key != "your_gemini_api_key_here" else "", type="password")
     if custom_key != st.session_state.api_key: st.session_state.api_key = custom_key
 
+st.sidebar.markdown("""
+<div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.95)); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 12px 14px; margin-top: 15px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+    <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.2px; color: #38bdf8; font-weight: 700; margin-bottom: 4px;">
+        👨‍💻 Platform Developers
+    </div>
+    <div style="font-size: 0.96rem; font-weight: 700; color: #f8fafc;">
+        Sree Charan & Karthik
+    </div>
+    <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">
+        CareBridge AI Core Architects
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 # ==============================================================================
 # PAGE 1: HOME
 # ==============================================================================
@@ -946,10 +1012,16 @@ if current_page == "🏠 Home":
     <div class="hero-container">
         <h1 class="hero-title">🌉 CareBridge AI</h1>
         <p style="font-size: 1.25rem; font-weight: 500; opacity: 0.95; margin-bottom: 14px;">From complex hospital instructions and cursive prescriptions to autonomous recovery at home.</p>
-        <div>
+        <div style="margin-bottom: 16px;">
             <span class="badge-pill badge-blue">✍️ Doctor Handwriting AI Vision</span>
             <span class="badge-pill badge-green">⏰ Timeline-Based Notifications</span>
             <span class="badge-pill badge-purple">🔐 User & Family Profiles</span>
+        </div>
+        <div style="padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.92rem; color: #cbd5e1;">
+            <span>🚀 Developed & Engineered by</span>
+            <strong style="color: #38bdf8; font-size: 0.96rem;">Sree Charan</strong>
+            <span>&</span>
+            <strong style="color: #4ade80; font-size: 0.96rem;">Karthik</strong>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1231,7 +1303,7 @@ elif current_page == "💡 Understand My Instructions":
             explanation_data = get_medical_explanation(st.session_state.extracted_text, api_key=st.session_state.api_key)
         
         st.caption(f"Analysis Engine: **{explanation_data.get('mode', 'Standard')}**")
-        tab1, tab2, tab3 = st.tabs(["🌟 Patient Explanation", "📖 Medical Glossary", "💬 Ask Questions"])
+        tab1, tab2, tab3, tab4 = st.tabs(["🌟 Patient Explanation", "🥗 AI Disease Diet Plan", "📖 Medical Glossary", "💬 Ask Questions"])
         
         with tab1:
             col_exp, col_orig = st.columns([3, 2])
@@ -1242,6 +1314,60 @@ elif current_page == "💡 Understand My Instructions":
                 st.info(st.session_state.extracted_text)
                 
         with tab2:
+            st.subheader("🥗 AI Disease-Specific Diet & Nutrition Plan")
+            st.caption("Personalized clinical nutrition and dietary guidelines generated dynamically based on diagnosed conditions and medications.")
+            
+            diet = explanation_data.get("diet_plan", {})
+            if diet:
+                st.markdown(f"""
+                <div style="background: rgba(16, 185, 129, 0.12); border: 1.5px solid rgba(16, 185, 129, 0.4); border-radius: 14px; padding: 18px 20px; margin-bottom: 20px;">
+                    <div style="font-size: 0.78rem; font-weight: 800; color: #34d399; letter-spacing: 1.2px; text-transform: uppercase;">🩺 Targeted Clinical Indications</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #f8fafc; margin-top: 4px;">{diet.get('condition_title', 'General Post-Discharge Recovery')}</div>
+                    <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 4px;">Analysis Model: <b>{diet.get('mode', 'Clinical AI Nutritionist')}</b></div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                col_d1, col_d2 = st.columns(2)
+                with col_d1:
+                    st.markdown("""
+                    <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(52, 211, 153, 0.35); border-radius: 14px; padding: 18px; margin-bottom: 16px;">
+                        <div style="font-size: 1.05rem; font-weight: 700; color: #34d399; margin-bottom: 10px;">✅ Recommended Healing Foods</div>
+                    """, unsafe_allow_html=True)
+                    for f in diet.get("recommended_foods", []):
+                        st.markdown(f"- 🟢 **{f.split(':')[0] if ':' in f else f}**{': ' + f.split(':', 1)[1] if ':' in f else ''}")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                with col_d2:
+                    st.markdown("""
+                    <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(248, 113, 113, 0.35); border-radius: 14px; padding: 18px; margin-bottom: 16px;">
+                        <div style="font-size: 1.05rem; font-weight: 700; color: #f87171; margin-bottom: 10px;">🚫 Foods & Drinks to Strictly Avoid</div>
+                    """, unsafe_allow_html=True)
+                    for a in diet.get("foods_to_avoid", []):
+                        st.markdown(f"- 🔴 **{a.split(':')[0] if ':' in a else a}**{': ' + a.split(':', 1)[1] if ':' in a else ''}")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                st.markdown("#### ⏰ Daily Meal & Hydration Routine")
+                sched = diet.get("meal_schedule", {})
+                if sched:
+                    sc1, sc2 = st.columns(2)
+                    with sc1:
+                        st.info(f"**🌅 Breakfast (08:30 AM):**\n\n{sched.get('breakfast', 'Nutritious breakfast with morning medicines.')}")
+                        st.info(f"**🌤️ Evening Snack (05:00 PM):**\n\n{sched.get('evening', 'Light refreshing snack.')}")
+                    with sc2:
+                        st.info(f"**☀️ Lunch (01:00 PM):**\n\n{sched.get('lunch', 'Balanced lunch with afternoon medicines.')}")
+                        st.info(f"**🌙 Dinner (07:30 PM):**\n\n{sched.get('dinner', 'Light dinner eaten at least 2 hours before bed.')}")
+                
+                if diet.get("hydration_plan"):
+                    st.success(f"**💧 Daily Hydration Target:** {diet['hydration_plan']}")
+
+                if diet.get("food_drug_tips"):
+                    st.markdown("#### ⚠️ Medication & Food Safety Guidelines")
+                    for tip in diet["food_drug_tips"]:
+                        st.warning(f"💡 {tip}")
+            else:
+                st.info("Upload a prescription or summary to generate a customized disease diet plan.")
+                
+        with tab3:
             st.subheader("📖 Medical Terms & Abbreviations Explained")
             glossary = explanation_data.get("glossary", {})
             if glossary:
@@ -1252,7 +1378,7 @@ elif current_page == "💡 Understand My Instructions":
             else: 
                 st.info("No specialized medical terms detected. (Upload a document with medical terms to see definitions here).")
                 
-        with tab3:
+        with tab4:
             st.subheader("💬 Patient Understanding Assistant")
             user_q = st.text_input("Enter your question:", placeholder="e.g., What is Betaloc used for? Or what does BID mean?")
             if st.button("Ask Assistant", type="primary"):
@@ -1353,6 +1479,10 @@ elif current_page == "🗺️ My Recovery Journey":
                             st.rerun()
                 else: 
                     st.write("No specific diet instructions noted.")
+
+                with st.expander("🥗 View Detailed AI Disease Diet & Nutrition Breakdown", expanded=False):
+                    diet_data = generate_disease_diet_plan(st.session_state.extracted_text, st.session_state.api_key)
+                    st.markdown(format_diet_plan_markdown(diet_data), unsafe_allow_html=True)
 
                 if plan.get("wound_care"):
                     st.markdown("#### 🩹 Surgical Wound Care")
@@ -1567,3 +1697,26 @@ elif current_page == "♿ Accessibility & Audio":
                     st.success("✅ Audio ready! Click play above to listen.")
                 except Exception as tts_err:
                     st.error(f"Error generating audio: {tts_err}")
+
+# ==============================================================================
+# GLOBAL APPLICATION FOOTER
+# ==============================================================================
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown("""
+<div style="margin-top: 40px; padding: 22px 18px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.75)); border-top: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; text-align: center; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);">
+    <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <span style="font-size: 1.3rem;">🌉</span>
+        <span style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; letter-spacing: 0.5px;">CareBridge AI</span>
+        <span style="font-size: 0.75rem; background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 20px; padding: 2px 10px; font-weight: 600;">Clinical Grade</span>
+    </div>
+    <p style="font-size: 0.9rem; color: #cbd5e1; margin-bottom: 6px;">
+        Bridging the gap between hospital discharge instructions, handwritten doctor scripts, and home recovery.
+    </p>
+    <div style="font-size: 0.92rem; color: #94a3b8; margin-top: 6px;">
+        Developed & Engineered with ❤️ by <strong style="color: #38bdf8;">Sree Charan</strong> and <strong style="color: #4ade80;">Karthik</strong>
+    </div>
+    <div style="font-size: 0.75rem; color: #64748b; margin-top: 6px;">
+        ⚠️ For educational & post-discharge adherence support. Always verify instructions with your licensed healthcare provider.
+    </div>
+</div>
+""", unsafe_allow_html=True)
