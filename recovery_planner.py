@@ -4,13 +4,17 @@ from datetime import datetime, date
 
 try:
     from modules.confusion_detector import analyze_document_confusion
+    from modules.disease_diet_planner import is_document_metadata_line, generate_disease_diet_plan
 except ModuleNotFoundError:
     from confusion_detector import analyze_document_confusion
+    from disease_diet_planner import is_document_metadata_line, generate_disease_diet_plan
+
+def build_recovery_plan(document_text: str, api_key: str = None) -> Dict[str, Any]:
     """
     Builds a structured Recovery Journey Map from the discharge summary.
     Categorizes facts strictly supported by the text:
     1. Medication instructions
-    2. Diet and lifestyle instructions
+    2. Diet and lifestyle instructions (disease-specific AI diet)
     3. Follow-up appointments
     4. Wound-care instructions
     5. Warning signs (red flags)
@@ -47,6 +51,10 @@ except ModuleNotFoundError:
         lower = line.lower()
         cleaned = line.lstrip("-*•1234567890. ")
         if not cleaned:
+            continue
+
+        # Skip document header, hospital addresses, DEA, licenses, patient demographics
+        if is_document_metadata_line(line):
             continue
 
         # Header detection: Lines that do NOT start with bullet points and act as section titles
@@ -114,6 +122,28 @@ except ModuleNotFoundError:
                 plan["wound_care"].append({"task": cleaned, "category": "Wound Care", "status": "Confirmed"})
             elif any(w in lower for w in ["pain", "breath", "fever", "emergency", "swelling"]):
                 plan["warnings"].append({"task": cleaned, "category": "Warning Sign", "status": "Urgent Alert"})
+
+    # If no explicit diet instructions exist in the text, use AI disease-specific diet plan
+    if not plan["diet_lifestyle"]:
+        disease_diet = generate_disease_diet_plan(document_text, api_key=api_key)
+        for f in disease_diet.get("recommended_foods", [])[:2]:
+            plan["diet_lifestyle"].append({
+                "task": f"Recommended Nutrition: {f}",
+                "category": "Diet & Lifestyle",
+                "status": "Confirmed"
+            })
+        for a in disease_diet.get("foods_to_avoid", [])[:2]:
+            plan["diet_lifestyle"].append({
+                "task": f"Dietary Restriction: Avoid {a}",
+                "category": "Diet & Lifestyle",
+                "status": "Confirmed"
+            })
+        if disease_diet.get("hydration_plan"):
+            plan["diet_lifestyle"].append({
+                "task": f"Hydration Target: {disease_diet['hydration_plan']}",
+                "category": "Diet & Lifestyle",
+                "status": "Confirmed"
+            })
 
     return plan
 
